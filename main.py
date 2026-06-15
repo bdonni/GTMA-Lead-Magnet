@@ -1,5 +1,6 @@
 import os
 import uuid
+import traceback
 from datetime import datetime
 
 from fastapi import FastAPI
@@ -23,7 +24,7 @@ template = env.get_template("template.html")
 # in the per-row Clay payload. Update CALENDLY_LINK once Leo's real
 # Calendly link is ready (set it as a Railway environment variable).
 CALENDLY_LINK = os.environ.get(
-    "CALENDLY_LINK", "https://calendly.com/PLACEHOLDER-leo/intro-call"
+    "CALENDLY_LINK", "https://gtmagency.ai/book"
 )
 PROOF_STATS = [
     {"value": "$7.8M", "label": "Pipeline generated for AirOps"},
@@ -58,19 +59,28 @@ def health():
 
 @app.post("/generate")
 def generate(payload: PayloadIn):
-    context = payload.dict()
-    context["calendly_link"] = CALENDLY_LINK
-    context["proof_stats"] = PROOF_STATS
-    context["date"] = datetime.now().strftime("%B %Y")
+    try:
+        context = payload.dict()
+        context["calendly_link"] = CALENDLY_LINK
+        context["proof_stats"] = PROOF_STATS
+        context["date"] = datetime.now().strftime("%B %Y")
 
-    html_str = template.render(**context)
+        html_str = template.render(**context)
 
-    filename = f"{uuid.uuid4()}.pdf"
-    out_path = os.path.join(OUTPUT_DIR, filename)
-    HTML(string=html_str, base_url=BASE_DIR).write_pdf(out_path)
+        filename = f"{uuid.uuid4()}.pdf"
+        out_path = os.path.join(OUTPUT_DIR, filename)
+        HTML(string=html_str, base_url=BASE_DIR).write_pdf(out_path)
 
-    base_url = os.environ.get("PUBLIC_URL", "").rstrip("/")
-    pdf_url = f"{base_url}/files/{filename}" if base_url else f"/files/{filename}"
+        base_url = os.environ.get("PUBLIC_URL", "").rstrip("/")
+        pdf_url = f"{base_url}/files/{filename}" if base_url else f"/files/{filename}"
 
-    return JSONResponse({"pdf_url": pdf_url, "filename": filename})
-
+        return JSONResponse({"pdf_url": pdf_url, "filename": filename})
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "traceback": traceback.format_exc(),
+            },
+        )
