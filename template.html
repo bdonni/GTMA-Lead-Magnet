@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@page {
+  size: Letter;
+  margin: 0.8in 0.7in 0.85in 0.7in;
+  @bottom-left { content: "gtmagency.ai"; font-family: Arial, sans-serif; font-size: 8.5pt; font-weight: bold; color: #1E4258; }
+  @bottom-right { content: "Outbound Playbook — " "{{ company_name }}"; font-family: Arial, sans-serif; font-size: 8pt; color: #9FB6C6; }
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: Arial, Helvetica, sans-serif; color: #14242E; }
+
+/* ---------- HEADER / LOGO LOCKUP ---------- */
+.logo-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.22in; }
+.logo-side { display: flex; align-items: center; gap: 10px; }
+.logo-side img.icon { width: 0.32in; height: 0.32in; border-radius: 6px; }
+.logo-side img.company-logo { max-height: 0.32in; max-width: 1.6in; object-fit: contain; }
+.logo-side .wordmark { font-size: 12pt; font-weight: bold; color: #08151F; }
+.logo-for { font-size: 9pt; color: #9FB6C6; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; }
+
+/* ---------- HEADER TEXT ---------- */
+.kicker { font-size: 9.5pt; font-weight: bold; color: #2F86C6; letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 6px; }
+h1.title { font-size: 25pt; font-weight: bold; color: #08151F; line-height: 1.25; margin-bottom: 12px; }
+.intro-text { font-size: 10.5pt; line-height: 1.5; color: #2C3E48; margin-bottom: 12px; }
+
+/* Social proof bar */
+.proof-bar {
+  background: #08151F; border-radius: 8px; padding: 10px 18px; margin: 0 0 10px 0;
+  display: flex; justify-content: center; align-items: center; gap: 24px;
+}
+.proof-bar .proof-item { text-align: center; }
+.proof-bar .proof-num { font-size: 17pt; font-weight: bold; color: #35C2E8; }
+.proof-bar .proof-label { font-size: 8pt; color: #9FB6C6; letter-spacing: 0.5px; margin-top: 2px; }
+.proof-bar .divider { width: 1px; height: 32px; background: #1E4258; }
+.backed-by { font-size: 8.5pt; color: #6E8597; text-align: center; margin-bottom: 10px; }
+
+/* Decision makers */
+.persona-row { display: flex; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+.persona-chip {
+  background: #EAF6FB; border: 1px solid #BFE6F2; color: #08151F;
+  border-radius: 20px; padding: 4px 12px; font-size: 9pt; font-weight: bold;
+}
+.section-label-top {
+  font-size: 9pt; font-weight: bold; color: #35C2E8; letter-spacing: 1.5px;
+  text-transform: uppercase; margin: 10px 0 6px 0;
+}
+
+/* ---------- STRATEGY CARDS (compact, multiple per page) ---------- */
+.strategy-card { margin-bottom: 0.18in; }
+.strategy-card.with-rule { border-top: 1px solid #E4ECF1; padding-top: 0.16in; }
+.strategy-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 7px; }
+.strategy-num {
+  background: #08151F; color: #35C2E8; font-size: 15pt; font-weight: bold;
+  width: 0.4in; height: 0.4in; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.strategy-title { font-size: 12.5pt; font-weight: bold; color: #08151F; line-height: 1.3; }
+.strategy-goal { font-size: 9.5pt; color: #2C3E48; line-height: 1.4; margin-top: 2px; }
+
+.tag-row { display: flex; gap: 8px; margin: 7px 0 8px 0; flex-wrap: wrap; }
+.tag {
+  font-size: 8pt; font-weight: bold; color: #2F86C6; background: #EAF6FB;
+  border-radius: 5px; padding: 4px 9px; letter-spacing: 0.3px;
+}
+.tag.dark { color: #08151F; background: #E4ECF1; }
+
+.section-label {
+  font-size: 8pt; font-weight: bold; color: #35C2E8; letter-spacing: 1.5px;
+  text-transform: uppercase; margin: 8px 0 3px 0;
+}
+.fit-box {
+  background: #F7FAFC; border-left: 3px solid #35C2E8; border-radius: 0 6px 6px 0;
+  padding: 7px 12px; font-size: 9.5pt; color: #2C3E48; line-height: 1.4; font-style: italic;
+  page-break-inside: avoid;
+}
+.trigger-box {
+  background: #08151F; color: #EAF6FB; border-radius: 8px; padding: 8px 12px;
+  font-size: 9.5pt; line-height: 1.4;
+  page-break-inside: avoid;
+}
+.exec-list { margin: 0; padding: 0; list-style: none; counter-reset: exec; }
+.exec-list li {
+  counter-increment: exec; position: relative; padding-left: 25px; margin-bottom: 6px;
+  font-size: 9.5pt; line-height: 1.4; color: #2C3E48;
+}
+.exec-list li::before {
+  content: counter(exec); position: absolute; left: 0; top: 0;
+  background: #EAF6FB; color: #08151F; font-weight: bold; font-size: 8.5pt;
+  width: 17px; height: 17px; border-radius: 50%; text-align: center; line-height: 17px;
+}
+
+/* CTA */
+.cta-block {
+  margin-top: 0.3in; background: #F7FAFC; border-radius: 10px; padding: 0.45in;
+  text-align: center;
+}
+.cta-block .kicker { justify-content: center; display: flex; }
+.cta-block h2 { font-size: 18pt; font-weight: bold; color: #08151F; max-width: 5in; margin: 0 auto 10px auto; line-height: 1.3; }
+.cta-block p { font-size: 11pt; color: #2C3E48; line-height: 1.6; max-width: 5in; margin: 0 auto 20px auto; }
+.cta-button {
+  display: inline-block; background: #08151F; color: #35C2E8 !important; text-decoration: none;
+  font-size: 12.5pt; font-weight: bold; padding: 15px 36px; border-radius: 8px; letter-spacing: 0.5px;
+}
+.cta-note { margin-top: 14px; font-size: 9.5pt; color: #9FB6C6; }
+.closing-page { min-height: 9.3in; display: flex; flex-direction: column; justify-content: center; }
+.closing-logo { display: flex; align-items: center; gap: 10px; justify-content: center; margin-bottom: 0.3in; }
+.closing-logo img { width: 0.32in; height: 0.32in; border-radius: 6px; }
+.closing-logo span { font-size: 12pt; font-weight: bold; color: #08151F; }
+
+.page-break { page-break-before: always; }
+</style>
+</head>
+<body>
+
+<!-- PAGE 1: HEADER + INTRO -->
+<div class="logo-row">
+  <div class="logo-side">
+    <img class="icon" src="assets/gtm_icon.png">
+    <span class="wordmark">gtmagency</span>
+  </div>
+  <div class="logo-for">a free gift for</div>
+  <div class="logo-side">
+    <img class="company-logo" src="{{ company_logo_url }}">
+  </div>
+</div>
+
+<div class="kicker">Three outbound plays built for {{ company_name }}</div>
+<h1 class="title">Hey {{ first_name }}, here's something for {{ company_name }}</h1>
+<div class="intro-text">{{ intro_text }}</div>
+
+<div class="proof-bar">
+  {% for stat in proof_stats %}
+  <div class="proof-item">
+    <div class="proof-num">{{ stat.value }}</div>
+    <div class="proof-label">{{ stat.label }}</div>
+  </div>
+  {% if not loop.last %}<div class="divider"></div>{% endif %}
+  {% endfor %}
+</div>
+<div class="backed-by">Built by a team that has worked with startups backed by Sequoia, a16z, Y Combinator, Techstars, Lightspeed, Wing, and Boldstart</div>
+
+{% if buyer_personas %}
+<div class="section-label-top">Who usually owns this decision at {{ company_name }}'s customers</div>
+<div class="persona-row">
+  {% for persona in buyer_personas %}
+  <div class="persona-chip">{{ persona }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- PAGE 2: STRATEGIES 1 & 2 -->
+{% for s in strategies[:2] %}
+<div class="strategy-card{% if not loop.first %} with-rule{% endif %}">
+  <div class="strategy-head">
+    <div class="strategy-num">{{ loop.index }}</div>
+    <div>
+      <div class="strategy-title">{{ s.strategyName }}</div>
+      <div class="strategy-goal">{{ s.goal }}</div>
+    </div>
+  </div>
+  <div class="tag-row">
+    <div class="tag">Channel: {{ s.channel }}</div>
+    <div class="tag dark">Target: {{ s.targetPersona }}</div>
+  </div>
+  <div class="section-label">Why this fits {{ company_name }}</div>
+  <div class="fit-box">{{ s.whyThisFitsYou }}</div>
+  <div class="section-label">The trigger to watch for</div>
+  <div class="trigger-box">{{ s.triggerDefinition }}</div>
+  <div class="section-label">How to run it</div>
+  <ol class="exec-list">
+    {% for step in s.execution %}
+    <li>{{ step }}</li>
+    {% endfor %}
+  </ol>
+</div>
+{% endfor %}
+
+<!-- PAGE 3: STRATEGY 3 + CTA -->
+{% set s = strategies[2] %}
+<div class="strategy-card">
+  <div class="strategy-head">
+    <div class="strategy-num">3</div>
+    <div>
+      <div class="strategy-title">{{ s.strategyName }}</div>
+      <div class="strategy-goal">{{ s.goal }}</div>
+    </div>
+  </div>
+  <div class="tag-row">
+    <div class="tag">Channel: {{ s.channel }}</div>
+    <div class="tag dark">Target: {{ s.targetPersona }}</div>
+  </div>
+  <div class="section-label">Why this fits {{ company_name }}</div>
+  <div class="fit-box">{{ s.whyThisFitsYou }}</div>
+  <div class="section-label">The trigger to watch for</div>
+  <div class="trigger-box">{{ s.triggerDefinition }}</div>
+  <div class="section-label">How to run it</div>
+  <ol class="exec-list">
+    {% for step in s.execution %}
+    <li>{{ step }}</li>
+    {% endfor %}
+  </ol>
+</div>
+
+<div class="closing-page">
+  <div class="closing-logo">
+    <img src="assets/gtm_icon.png">
+    <span>gtmagency</span>
+  </div>
+  <div class="cta-block">
+    <div class="kicker">Want a hand putting these to work?</div>
+    <h2>If you'd rather have someone build and run this for {{ company_name }}, we can do it for you.</h2>
+    <p>Grab 20 minutes and we'll walk through how these three plays would be set up end to end, what it'd take to get them live, and where they'd plug into what {{ company_name }} is already doing.</p>
+    <a class="cta-button" href="{{ calendly_link }}">Book a time with Leo</a>
+    <div class="cta-note">No pitch deck, just a working session on your outbound.</div>
+  </div>
+</div>
+
+</body>
+</html>

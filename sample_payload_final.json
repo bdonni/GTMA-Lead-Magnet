@@ -1,0 +1,65 @@
+{
+  "first_name": "Areya",
+  "company_name": "Karbon",
+  "company_logo_url": "https://d878vporrm2hj.cloudfront.net/company/45713084_company_logo",
+  "intro_text": "Hi Areya, I'm Leo - I run GTM Agency, where we build AI-powered outbound systems for B2B SaaS companies, and we've worked with teams backed by investors like Sequoia, a16z, and Y Combinator. From what I can see, Karbon could be sitting on a lot of unmet demand - you're selling a platform that saves accounting teams around 18.5 hours a week, to a buyer (accounting partners and firm directors) who rarely raises their hand until the pain gets bad enough to force a decision. That suggests there might be room to get in front of the right firms earlier, at the exact moments their operations start to strain, rather than waiting for them to come looking. With that in mind, here are three ways you could bring in more meetings for Karbon.",
+  "buyer_personas": [
+    "Chief Financial Officer",
+    "Accounting Partner",
+    "Director of Finance",
+    "Senior Accountant"
+  ],
+  "strategies": [
+    {
+      "strategyName": "Competitor Tool Replacement Trigger",
+      "goal": "Book qualified meetings with accounting firms actively frustrated with their current practice management tool and open to switching to Karbon.",
+      "whyThisFitsYou": "Accounting firms rarely rip out their practice management system on a whim, but they do start looking the moment their current tool slows them down. Many firms on TaxDome, Canopy, or Financial Cents hit friction as they grow, clunky workflows, weak collaboration, or automation that doesn't scale. When that frustration surfaces publicly on review sites, it's the perfect moment to show how Karbon centralizes work and gives back roughly 18.5 hours a week per employee. You're not asking them to consider change cold, you're meeting them right as they're already questioning what they have.",
+      "triggerDefinition": "A firm leaves a critical or middling review of TaxDome, Canopy, or Financial Cents on G2 or Capterra citing missing automation, poor workflow visibility, or collaboration pain.",
+      "technologyUsed": "G2, Capterra, Clay for enrichment, Apollo for contact data",
+      "targetPersona": "Accounting Partner",
+      "channel": "Email + LinkedIn",
+      "execution": [
+        "Monitor G2 and Capterra review feeds for TaxDome, Canopy, and Financial Cents, flagging reviews rated 3 stars or lower that mention workflow, automation, or collaboration complaints.",
+        "Verify the reviewer's firm is an accounting practice matching Karbon's ICP (small to large firm) using the company name and reviewer title where disclosed.",
+        "Enrich the firm in Clay to confirm headcount and accounting-practice fit, filtering out non-accounting or single-person operations.",
+        "Identify the Accounting Partner or Director of Finance at that firm via Apollo, then verify the email and LinkedIn profile are current.",
+        "Draft a hedged message that references the common gap in their current tool (e.g. workflow visibility on Canopy) without quoting the review directly, positioning Karbon as the sharper alternative.",
+        "Send via email with a LinkedIn connection as a second touch, leading with the specific pain area and the 18.5 hours-per-week productivity angle."
+      ]
+    },
+    {
+      "strategyName": "Rapid Headcount Growth Trigger",
+      "goal": "Generate meetings with accounting firms whose recent hiring surge is straining how their teams coordinate work.",
+      "whyThisFitsYou": "When an accounting firm adds staff quickly, the way they tracked client work in spreadsheets and email breaks down fast, handoffs slip, deadlines get missed, and partners lose visibility. That's exactly the pain Karbon was built to remove with centralized workflows and automation. Reaching a firm just as its team expands lets you tie your pitch to a problem they're actively feeling, rather than a hypothetical one. Growing firms also have the budget and the urgency to fix operations before chaos sets in.",
+      "triggerDefinition": "An accounting firm in Karbon's ICP grows its headcount sharply (notably its client-services or accounting team) over a 6-12 month window.",
+      "technologyUsed": "LinkedIn Sales Navigator growth filters, Apollo, Clay",
+      "targetPersona": "Accounting Partner",
+      "channel": "LinkedIn + Email",
+      "execution": [
+        "Use Sales Navigator growth filters to surface accounting firms with notable headcount increases over the past 6-12 months.",
+        "Confirm the growth is concentrated in accounting or client-services roles, the teams whose work Karbon directly streamlines, rather than unrelated functions.",
+        "Enrich each firm in Clay to validate ICP fit on size and practice type, removing firms outside the small-to-large accounting profile.",
+        "Identify the Accounting Partner or Director of Finance via Apollo and verify the contact's current role and email.",
+        "Craft a message referencing the specific team that expanded and the operational strain that scaling brings to client workflow coordination.",
+        "Reach out on LinkedIn first to reference the growth naturally, then follow up by email connecting their scaling to how Karbon holds up under growth."
+      ]
+    },
+    {
+      "strategyName": "New Executive Appointment Trigger",
+      "goal": "Win early meetings with newly appointed finance and accounting leaders evaluating their operational stack in their first quarter.",
+      "whyThisFitsYou": "New CFOs, Directors of Finance, and incoming partners almost always audit their tools and processes in their first 90 days, it's when they're expected to make a visible mark. That window is your opening: a leader rebuilding how their practice runs is far more receptive to a platform that centralizes workflows and frees up nearly 18.5 hours a week per employee. Tying Karbon to a fast first-quarter win gives the new exec an easy way to demonstrate impact early. You're reaching them precisely when change is on the table and inertia hasn't set in.",
+      "triggerDefinition": "A new CFO, Director of Finance, or Accounting Partner is appointed at an ICP-fit accounting firm within their first 90 days.",
+      "technologyUsed": "Apollo job-change data, Predictleads, Sales Navigator",
+      "targetPersona": "Director of Finance",
+      "channel": "LinkedIn + Email",
+      "execution": [
+        "Monitor Apollo job-change alerts and Predictleads for new CFO, Director of Finance, and Accounting Partner appointments at accounting firms, filtering to hires within the last 90 days.",
+        "Verify the appointing firm matches Karbon's ICP on size and practice type, prioritizing firms where practice management is core.",
+        "Research the exec's prior company and the mandate the role carries, looking for signals they're expected to improve efficiency or operations.",
+        "Confirm the exec's current LinkedIn profile and verify a working email via Apollo before any outreach.",
+        "Write a message referencing them by name and prior company, framing Karbon as a lever for a visible first-quarter operational win.",
+        "Open with a LinkedIn note congratulating the appointment and connecting their mandate to efficiency gains, then follow up by email with the productivity angle."
+      ]
+    }
+  ]
+}
