@@ -24,12 +24,25 @@ template = env.get_template("template.html")
 # in the per-row Clay payload. Update CALENDLY_LINK once Leo's real
 # Calendly link is ready (set it as a Railway environment variable).
 CALENDLY_LINK = os.environ.get(
-    "CALENDLY_LINK", "https://gtmagency.ai/book"
+    "CALENDLY_LINK", "https://calendly.com/PLACEHOLDER-leo/intro-call"
 )
 PROOF_STATS = [
     {"value": "$7.8M", "label": "Pipeline generated for AirOps"},
     {"value": "100/mo", "label": "Meetings booked for Peoplelogic"},
+    {"value": "500+", "label": "SaaS companies scaled"},
 ]
+
+
+def split_intro_paragraphs(text: str) -> list[str]:
+    """Split intro text into 2-sentence paragraphs for readable spacing."""
+    text = text.replace('\n', ' ').strip()
+    sentences = [s.strip() for s in text.split('. ') if s.strip()]
+    sentences = [s if s.endswith('.') else s + '.' for s in sentences]
+    paragraphs = []
+    for i in range(0, len(sentences), 2):
+        group = sentences[i:min(i + 2, len(sentences))]
+        paragraphs.append(' '.join(group))
+    return paragraphs
 
 
 class Strategy(BaseModel):
@@ -64,6 +77,7 @@ def generate(payload: PayloadIn):
         context["calendly_link"] = CALENDLY_LINK
         context["proof_stats"] = PROOF_STATS
         context["date"] = datetime.now().strftime("%B %Y")
+        context["intro_paragraphs"] = split_intro_paragraphs(payload.intro_text)
 
         html_str = template.render(**context)
 
