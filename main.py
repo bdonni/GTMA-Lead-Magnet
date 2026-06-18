@@ -62,15 +62,16 @@ def upload_to_drive(pdf_path: str, company_name: str) -> str:
     file = service.files().create(
         body=file_metadata,
         media_body=media,
-        fields="id"
+        fields="id",
+        supportsAllDrives=True
     ).execute()
 
     file_id = file.get("id")
 
-    # Make viewable by anyone with the link
     service.permissions().create(
         fileId=file_id,
-        body={"role": "reader", "type": "anyone"}
+        body={"role": "reader", "type": "anyone"},
+        supportsAllDrives=True
     ).execute()
 
     return f"https://drive.google.com/file/d/{file_id}/view"
@@ -116,12 +117,10 @@ def generate(payload: PayloadIn):
         out_path = os.path.join(OUTPUT_DIR, filename)
         HTML(string=html_str, base_url=BASE_DIR).write_pdf(out_path)
 
-        # Upload to Google Drive if credentials are set
         drive_url = None
         if GOOGLE_CREDENTIALS_JSON and DRIVE_FOLDER_ID:
             drive_url = upload_to_drive(out_path, payload.company_name)
 
-        # Fall back to Railway file URL if Drive upload not configured
         base_url = os.environ.get("PUBLIC_URL", "").rstrip("/")
         pdf_url = f"{base_url}/files/{filename}" if base_url else f"/files/{filename}"
 
