@@ -24,7 +24,7 @@ template = env.get_template("template.html")
 # in the per-row Clay payload. Update CALENDLY_LINK once Leo's real
 # Calendly link is ready (set it as a Railway environment variable).
 CALENDLY_LINK = os.environ.get(
-    "CALENDLY_LINK", "https://calendly.com/PLACEHOLDER-leo/intro-call"
+    "CALENDLY_LINK", "https://calendly.com/thegtmagency/"
 )
 PROOF_STATS = [
     {"value": "$7.8M", "label": "Pipeline generated for AirOps"},
@@ -98,3 +98,4 @@ def generate(payload: PayloadIn):
                 "traceback": traceback.format_exc(),
             },
         )
+
