@@ -2,7 +2,8 @@ import os
 import json
 import uuid
 import traceback
-from datetime import datetime
+import requests
+from datetime import datetime, timezone, timedelta
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -24,9 +25,11 @@ app.mount("/files", StaticFiles(directory=OUTPUT_DIR), name="files")
 env = Environment(loader=FileSystemLoader(BASE_DIR))
 template = env.get_template("template.html")
 
-CALENDLY_LINK = os.environ.get("CALENDLY_LINK", "https://calendly.com/thegtmagency/")
-DRIVE_FOLDER_ID = os.environ.get("DRIVE_FOLDER_ID", "")
+CALENDLY_LINK          = os.environ.get("CALENDLY_LINK", "https://calendly.com/thegtmagency/")
+DRIVE_FOLDER_ID        = os.environ.get("DRIVE_FOLDER_ID", "")
 GOOGLE_CREDENTIALS_JSON = os.environ.get("GOOGLE_CREDENTIALS_JSON", "")
+SLACK_WEBHOOK_URL      = os.environ.get("SLACK_WEBHOOK_URL", "")
+CALENDLY_API_TOKEN     = os.environ.get("CALENDLY_API_TOKEN", "")
 
 PROOF_STATS = [
     {"value": "$7.8M", "label": "Pipeline generated for AirOps"},
@@ -77,6 +80,128 @@ def upload_to_drive(pdf_path: str, company_name: str) -> str:
     return f"https://drive.google.com/file/d/{file_id}/view"
 
 
+def get_calendly_slots() -> list[str]:
+    if not CALENDLY_API_TOKEN:
+        return []
+
+    headers = {
+        "Authorization": f"Bearer {CALENDLY_API_TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        me = requests.get(
+            "https://api.calendly.com/users/me",
+            headers=headers,
+            timeout=10
+        ).json()
+        user_uri = me["resource"]["uri"]
+
+        et_resp = requests.get(
+            "https://api.calendly.com/event_types",
+            headers=headers,
+            params={"user": user_uri, "active": "true"},
+            timeout=10
+        ).json()
+
+        event_types = et_resp.get("collection", [])
+        if not event_types:
+            return []
+
+        event_type_uri = event_types[0]["uri"]
+
+        now = datetime.now(timezone.utc)
+        end = now + timedelta(hours=72)
+
+        avail = requests.get(
+            "https://api.calendly.com/event_type_available_times",
+            headers=headers,
+            params={
+                "event_type": event_type_uri,
+                "start_time": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "end_time": end.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            },
+            timeout=10
+        ).json()
+
+        slots = avail.get("collection", [])
+        if not slots:
+            return []
+
+        est = timezone(timedelta(hours=-5))
+        formatted = []
+        for slot in slots[:2]:
+            dt = datetime.fromisoformat(slot["start_time"].replace("Z", "+00:00"))
+            dt_est = dt.astimezone(est)
+            day = dt_est.strftime("%A")
+            time_str = dt_est.strftime("%I:%M%p").lstrip("0")
+            formatted.append(f"{day} at {time_str} EST")
+
+        return formatted
+
+    except Exception:
+        return []
+
+
+def post_to_slack(first_name: str, company_name: str, drive_url: str):
+    slots = get_calendly_slots()
+
+    if len(slots) >= 2:
+        time_pitch = f"Does {slots[0]} or {slots[1]} work to have a chat?"
+    elif len(slots) == 1:
+        time_pitch = f"Does {slots[0]} work to have a chat?"
+    else:
+        time_pitch = "Would love to find a time to chat."
+
+    reply_email = (
+        f"Hey {first_name}, great to hear back from you.\n\n"
+        f"Here's the map I promised for {company_name}: {drive_url}\n\n"
+        f"Would love to walk you through them and discuss how we could bring your GTM to life.\n\n"
+        f"{time_pitch}\n\n"
+        f"If neither of those are good, please feel free to find some time here: {CALENDLY_LINK}\n\n"
+        f"Look forward to speaking to you soon.\n\n"
+        f"Best, Leo"
+    )
+
+    message = {
+        "blocks": [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": f"🟢 New lead magnet — {first_name} / {company_name}"
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Playbook:* <{drive_url}|Open in Google Drive>"
+                }
+            },
+            {
+                "type": "divider"
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "*Reply to send:*"
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"```{reply_email}```"
+                }
+            }
+        ]
+    }
+
+    requests.post(SLACK_WEBHOOK_URL, json=message, timeout=10)
+
+
 class Strategy(BaseModel):
     strategyName: str
     goal: str
@@ -120,6 +245,9 @@ def generate(payload: PayloadIn):
         drive_url = None
         if GOOGLE_CREDENTIALS_JSON and DRIVE_FOLDER_ID:
             drive_url = upload_to_drive(out_path, payload.company_name)
+
+        if drive_url and SLACK_WEBHOOK_URL:
+            post_to_slack(payload.first_name, payload.company_name, drive_url)
 
         base_url = os.environ.get("PUBLIC_URL", "").rstrip("/")
         pdf_url = f"{base_url}/files/{filename}" if base_url else f"/files/{filename}"
