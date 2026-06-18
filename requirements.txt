@@ -4,3 +4,5 @@ jinja2==3.1.4
 weasyprint==69.0
 pydyf==0.12.1
 pydantic==2.9.2
+google-auth==2.28.2
+google-api-python-client==2.127.0
