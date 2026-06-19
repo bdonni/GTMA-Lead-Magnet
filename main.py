@@ -23,7 +23,24 @@ def _split_sentences(text: str) -> list[str]:
     parts = re.split(r'(?<=[.!?])\s+(?=[A-Z\"\'\(])', text.strip())
     return [p.strip() for p in parts if p.strip()]
 
-env.filters["sentences"] = _split_sentences  # register BEFORE get_template
+def _bold_offer(sentence: str) -> str:
+    """Bold 'we build AI-assisted X' and '90-day sprint...' in the Leo intro sentence."""
+    # Bold "we build AI-assisted X" up to the next clause boundary
+    sentence = re.sub(
+        r'(we build AI-assisted [\w\s]+?)(\s+for\b|\s+to\b|\s+at\b|,)',
+        r'<strong>\1</strong>\2',
+        sentence, flags=re.IGNORECASE
+    )
+    # Bold "90-day sprint" through the end of the sentence
+    sentence = re.sub(
+        r'(90-day sprint[^.]*\.)',
+        r'<strong>\1</strong>',
+        sentence, flags=re.IGNORECASE
+    )
+    return sentence
+
+env.filters["sentences"]   = _split_sentences
+env.filters["bold_offer"]  = _bold_offer
 template = env.get_template("template.html")
 
 # ── ENV VARS ──────────────────────────────────────────────────────────────────
