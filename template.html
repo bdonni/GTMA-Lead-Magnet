@@ -346,7 +346,11 @@ h1.doc-title {
 <h1 class="doc-title">Your Go-To-Market Map, {{ company_name }}.</h1>
 
 {% for sentence in intro_text | sentences %}
+  {% if loop.first %}
+<p class="intro-para">{{ sentence | bold_offer | safe }}</p>
+  {% else %}
 <p class="intro-para">{{ sentence }}</p>
+  {% endif %}
 {% endfor %}
 
 <div class="stats-bar">
