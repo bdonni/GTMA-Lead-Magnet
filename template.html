@@ -4,260 +4,472 @@
 <head>
 <meta charset="utf-8">
 <style>
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+/* ── GTM AGENCY BRAND TOKENS ── */
+:root {
+  --black:    #000000;   /* Marble Black */
+  --dark:     #282526;   /* Dark Gray */
+  --mid:      #4c4548;   /* Light Gray */
+  --gold:     #c2a983;   /* Golden Yellow */
+  --blue:     #9ec3f8;   /* Blue Sky */
+  --green:    #8de3ba;   /* Green Grass */
+
+  /* dark marble surfaces */
+  --bg:       #0d0b0a;
+  --surface:  #1a1817;
+  --surface2: #211f1e;
+  --border:   #2e2b2a;
+  --border2:  #383433;
+
+  /* text on dark */
+  --text:     #f4f1ea;
+  --text-mid: #a09890;
+  --text-sub: #6b6460;
+
+  --font:     'Inter', Arial, Helvetica, sans-serif;
+}
+
+/* ── PAGES ── */
 @page {
   size: Letter;
-  margin: 0.9in 0.85in 1in 0.85in;
+  margin: 0.65in 0.75in 0.8in 0.75in;
+  background: #0d0b0a;
   @bottom-center {
     content: counter(page) " / " counter(pages);
-    font-family: 'Helvetica Neue', Arial, sans-serif;
-    font-size: 8pt; color: #AAAAAA;
+    font-family: 'Inter', Arial, sans-serif;
+    font-size: 7.5pt;
+    color: #4c4548;
   }
 }
 @page strategy-page {
   size: Letter;
-  margin: 0.55in 0.75in 0.7in 0.75in;
-  @bottom-center {
-    content: counter(page) " / " counter(pages);
-    font-family: 'Helvetica Neue', Arial, sans-serif;
-    font-size: 8pt; color: #AAAAAA;
-  }
+  margin: 0.55in 0.75in 0.65in 0.75in;
+  background: #0d0b0a;
+}
+@page cta-page {
+  size: Letter;
+  margin: 0.65in 0.75in 0.65in 0.75in;
+  background: #0d0b0a;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Helvetica Neue', Arial, Helvetica, sans-serif; font-size: 10pt; line-height: 1.75; color: #1A1A1A; background: #FFFFFF; }
+html, body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 10pt;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
 
-/* LOGO ROW */
-.logo-row { display: flex; align-items: center; justify-content: space-between; padding-bottom: 0.26in; border-bottom: 1.5px solid #1A1A1A; margin-bottom: 0.42in; }
-.logo-lockup { display: flex; align-items: center; gap: 12px; }
-.sender-mark { display: flex; align-items: center; gap: 8px; }
-.sender-mark img.icon { width: 34px; height: 34px; border-radius: 6px; }
-.sender-mark span { font-size: 10.5pt; font-weight: 700; letter-spacing: -0.2px; color: #08151F; }
-.logo-x { font-size: 13pt; color: #CCCCCC; font-weight: 300; line-height: 1; }
-.recipient-logo img { max-height: 34px; max-width: 130px; object-fit: contain; vertical-align: middle; }
+/* ══════════════════════════════
+   PAGE 1 — INTRO
+══════════════════════════════ */
 
-/* PAGE 1 HEADER */
-.doc-label { font-size: 7.5pt; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: #888888; margin-bottom: 0.18in; }
-h1.doc-title { font-size: 28pt; font-weight: 800; line-height: 1.1; color: #08151F; letter-spacing: -0.8px; margin-bottom: 0.32in; white-space: nowrap; }
+.logo-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 0.2in;
+}
+.sender-side { display: flex; align-items: center; gap: 9px; }
+.sender-side .wordmark {
+  font-size: 11pt; font-weight: 700; color: var(--text); letter-spacing: -0.3px;
+}
+.logo-x { color: var(--border2); font-weight: 300; font-size: 13pt; line-height: 1; }
+.recipient-logo img {
+  max-height: 30px; max-width: 130px; object-fit: contain; vertical-align: middle;
+  filter: brightness(0) invert(1);
+  opacity: 0.85;
+}
 
-/* INTRO */
-.intro-para { font-size: 9.5pt; line-height: 1.85; color: #333333; max-width: 5.8in; margin-bottom: 0.13in; }
-.intro-para:last-child { margin-bottom: 0.32in; }
+.h-rule      { height: 1px; background: var(--border); margin-bottom: 0.14in; }
+.h-rule-thin { height: 1px; background: var(--border); margin-bottom: 0.14in; }
 
-/* PROOF ROW */
-.proof-row { display: flex; gap: 0; margin-bottom: 0; padding: 0.26in 0; border-top: 1px solid #E0E0E0; border-bottom: 1px solid #E0E0E0; align-items: center; }
-.proof-item { flex: 1; padding: 0 0.3in; }
-.proof-item:first-child { padding-left: 0; }
-.proof-num { font-size: 19pt; font-weight: 700; color: #08151F; line-height: 1.1; letter-spacing: -0.5px; }
-.proof-desc { font-size: 8pt; color: #888888; margin-top: 2px; }
-.proof-divider { width: 1px; height: 36px; background: #E0E0E0; flex-shrink: 0; }
-.backed-line { font-size: 8pt; font-weight: 500; color: #555555; margin-top: 0.14in; margin-bottom: 0.28in; }
+/* VC backer section */
+.vc-section { margin-bottom: 0.14in; }
+.vc-text {
+  font-size: 8.5pt; color: var(--text-mid); line-height: 1.5; margin-bottom: 10px;
+}
+.vc-text strong { font-weight: 700; color: var(--text); }
+.vc-logos {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+}
+.vc-logos img {
+  height: 22px; width: auto; max-width: 100px;
+  object-fit: contain; opacity: 0.8; vertical-align: middle;
+}
 
-/* PERSONAS - boxed */
-.personas-label { font-size: 7.5pt; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: #888888; margin-bottom: 0.12in; }
-.persona-row { display: flex; gap: 8px; flex-wrap: wrap; }
+/* Kicker / headline */
+.doc-kicker {
+  font-size: 7.5pt; font-weight: 600; color: var(--text-sub);
+  letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 5px;
+}
+h1.doc-title {
+  font-size: 25pt; font-weight: 800; color: var(--text);
+  line-height: 1.15; letter-spacing: -0.7px; margin-bottom: 14px;
+}
+.intro-para {
+  font-size: 10.5pt; line-height: 1.7; color: var(--text-mid); margin-bottom: 8px;
+}
+
+/* Stats — Golden Yellow numbers */
+.stats-bar {
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  padding: 11px 0; display: flex; margin-bottom: 14px;
+}
+.stat-col {
+  flex: 1; padding-left: 16px; border-left: 1px solid var(--border);
+}
+.stat-col:first-child { padding-left: 0; border-left: none; }
+.stat-value {
+  font-size: 18pt; font-weight: 800; color: var(--gold);
+  line-height: 1.1; letter-spacing: -0.5px;
+}
+.stat-label { font-size: 7.5pt; font-weight: 400; color: var(--text-sub); margin-top: 2px; }
+
+/* Persona chips */
+.dm-label {
+  font-size: 7pt; font-weight: 700; color: var(--text-sub);
+  letter-spacing: 2px; text-transform: uppercase; margin-bottom: 7px;
+}
+.persona-row { display: flex; flex-wrap: wrap; gap: 7px; }
 .persona-chip {
-  border: 1.5px solid #B8CCE0;
-  border-radius: 4px;
-  padding: 6px 14px;
-  font-size: 9pt;
-  color: #08151F;
-  font-weight: 600;
-  background: #F0F5FA;
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: 4px; padding: 5px 13px;
+  font-size: 9pt; font-weight: 600; color: var(--text);
 }
 
-/* STRATEGY PAGES */
-.strategy-section { page-break-before: always; page: strategy-page; }
-.strategy-header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 0.14in; border-bottom: 1px solid #1A1A1A; margin-bottom: 0.3in; }
-.strategy-header .sh-left { display: flex; align-items: center; gap: 8px; }
-.strategy-header .sh-left img { width: 20px; height: 20px; border-radius: 4px; }
-.strategy-header .sh-left span { font-size: 9pt; font-weight: 700; color: #08151F; }
-.strategy-header .sh-x { font-size: 10pt; color: #CCCCCC; font-weight: 300; }
-.strategy-header .sh-right { font-size: 8pt; font-weight: 600; color: #AAAAAA; letter-spacing: 1.5px; text-transform: uppercase; }
+/* ══════════════════════════════
+   STRATEGY PAGES 2-4
+══════════════════════════════ */
 
-.strategy-num { font-size: 52pt; font-weight: 700; color: #F0F0F0; line-height: 1; letter-spacing: -2px; margin-bottom: -0.08in; }
-.strategy-name { font-size: 16pt; font-weight: 700; color: #08151F; letter-spacing: -0.3px; line-height: 1.2; margin-bottom: 0.04in; }
-.strategy-goal { font-size: 9.5pt; color: #555555; line-height: 1.6; margin-bottom: 0.22in; max-width: 5.5in; }
+.strategy-page { page: strategy-page; page-break-before: always; }
 
-/* META BOXES - different shade per type */
-.meta-row { display: flex; gap: 0.14in; margin-bottom: 0.18in; padding-bottom: 0.16in; border-bottom: 1px solid #E8E8E8; }
-.meta-item { flex: 1; border-radius: 5px; padding: 0.05in 0.1in; }
-.meta-item.channel { background: #EEF4FF; border: 1px solid #C5D8FF; }
-.meta-item.target  { background: #EEFBF0; border: 1px solid #BBE0C4; }
-.meta-item.tool    { background: #FFF8EE; border: 1px solid #F0DDB8; }
-.meta-label { font-size: 6pt; font-weight: 600; letter-spacing: 1.8px; text-transform: uppercase; color: #AAAAAA; margin-bottom: 2px; }
-.meta-value { font-size: 8pt; color: #1A1A1A; font-weight: 600; line-height: 1.3; }
-
-/* BLOCK LABELS + WHY BOX */
-.block-label { font-size: 7pt; font-weight: 600; letter-spacing: 1.8px; text-transform: uppercase; color: #AAAAAA; margin-bottom: 0.05in; margin-top: 0.16in; }
-.why-body {
-  font-size: 9.5pt; line-height: 1.68; color: #1E2F3D;
-  background: #F4F8FB; border-left: 3px solid #B8CCE0;
-  border-radius: 0 5px 5px 0; padding: 0.09in 0.13in; max-width: 5.6in;
+.strat-pg-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.1in;
 }
-.block-body { font-size: 9.5pt; line-height: 1.68; color: #2A2A2A; max-width: 5.6in; }
+.strat-pg-left {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 9.5pt; font-weight: 700; color: var(--text);
+}
+.strat-pg-sep { color: var(--border2); font-weight: 300; font-size: 11pt; }
+.strat-pg-right {
+  font-size: 7pt; font-weight: 700; color: var(--text-sub);
+  letter-spacing: 2px; text-transform: uppercase;
+}
+.strat-rule { height: 1px; background: var(--border); margin-bottom: 0.16in; }
 
-/* SIGNAL - cyan tint */
-.trigger-body {
-  font-size: 9.5pt; line-height: 1.68; color: #08394F;
-  background: #F0FAFE; border-left: 3px solid #35C2E8;
-  border-radius: 0 5px 5px 0; padding: 0.09in 0.13in; max-width: 5.4in;
+/* Large background number — very dark so it's barely visible, textural */
+.strat-num-bg {
+  font-size: 62pt; font-weight: 900; color: var(--surface2);
+  line-height: 1; letter-spacing: -2px; margin-bottom: 0.03in;
+}
+.strat-name {
+  font-size: 16pt; font-weight: 800; color: var(--text);
+  line-height: 1.2; margin-bottom: 4px; letter-spacing: -0.3px;
+}
+.strat-goal { font-size: 10pt; color: var(--text-mid); line-height: 1.5; margin-bottom: 12px; }
+
+/* Info boxes — dark surface + brand accent left borders */
+.info-boxes { display: flex; gap: 8px; margin-bottom: 14px; }
+.info-box {
+  flex: 1; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 5px; padding: 8px 10px;
+}
+.info-box.ch  { border-left: 3px solid var(--blue); }   /* Blue Sky */
+.info-box.tgt { border-left: 3px solid var(--green); }  /* Green Grass */
+.info-box.tl  { border-left: 3px solid var(--gold); }   /* Golden Yellow */
+.info-box-lbl {
+  font-size: 6.5pt; font-weight: 700; color: var(--text-sub);
+  letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 4px;
+}
+.info-box-val { font-size: 9.5pt; font-weight: 700; color: var(--text); line-height: 1.35; }
+
+.sec-label {
+  font-size: 7pt; font-weight: 700; color: var(--text-sub);
+  letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 6px;
 }
 
-/* EXEC STEPS */
-.exec-list { list-style: none; counter-reset: exec; margin-top: 0.06in; }
-.exec-list li { counter-increment: exec; display: flex; gap: 0.11in; padding: 0.04in 0; align-items: flex-start; border-bottom: 1px solid #F5F5F5; page-break-inside: avoid; }
-.exec-list li:last-child { border-bottom: none; }
-.exec-num { font-size: 6pt; font-weight: 700; color: #FFFFFF; background: #08151F; min-width: 14px; height: 14px; border-radius: 50%; text-align: center; line-height: 14px; flex-shrink: 0; margin-top: 2px; }
-.exec-text { font-size: 8.5pt; line-height: 1.55; color: #2A2A2A; }
+/* Why this fits — green accent, dark surface */
+.why-box {
+  background: var(--surface);
+  border-left: 3px solid var(--green);
+  border-radius: 0 5px 5px 0;
+  padding: 9px 13px;
+  font-size: 9.5pt; color: var(--text-mid);
+  line-height: 1.6; font-style: italic;
+  margin-bottom: 11px; page-break-inside: avoid;
+}
 
-/* CTA PAGE */
-.cta-section { page-break-before: always; padding-top: 0.7in; }
-.cta-rule { width: 0.5in; height: 3px; background: #35C2E8; margin-bottom: 0.24in; }
-.cta-title { font-size: 22pt; font-weight: 800; color: #08151F; line-height: 1.2; letter-spacing: -0.5px; max-width: 5.6in; margin-bottom: 0.16in; }
-.cta-body { font-size: 10.5pt; line-height: 1.8; color: #444444; max-width: 4.8in; margin-bottom: 0.26in; }
-.cta-button-wrap { margin-bottom: 0; }
-.cta-link { display: inline-block; font-size: 11pt; font-weight: 700; color: #FFFFFF !important; text-decoration: none; background: #08151F; padding: 0.13in 0.3in; border-radius: 5px; letter-spacing: 0.2px; }
-.cta-note { margin-top: 0.08in; font-size: 8.5pt; color: #AAAAAA; }
+/* Signal to watch for — blue accent, dark surface */
+.signal-box {
+  background: var(--surface);
+  border-left: 3px solid var(--blue);
+  border-radius: 0 5px 5px 0;
+  padding: 9px 13px;
+  font-size: 9.5pt; color: var(--blue);
+  line-height: 1.6;
+  margin-bottom: 11px; page-break-inside: avoid;
+}
 
-/* CONNECT SECTION */
-.connect-rule { border: none; border-top: 1px solid #E8E8E8; margin: 0.26in 0 0.2in 0; }
-.connect-label { font-size: 7.5pt; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: #AAAAAA; margin-bottom: 0.14in; }
-.connect-cards { display: flex; gap: 0.18in; }
-.connect-card { flex: 1; border: 1px solid #EEEEEE; border-radius: 6px; padding: 0.14in 0.18in; }
-.connect-card-name { font-size: 11pt; font-weight: 700; color: #08151F; margin-bottom: 3px; }
-.connect-card-org { font-size: 8.5pt; color: #888888; margin-bottom: 0.12in; }
-.connect-btn { display: inline-block; font-size: 8.5pt; font-weight: 700; color: #08151F !important; text-decoration: none; border: 1.5px solid #08151F; border-radius: 4px; padding: 4px 12px; }
+/* Execution steps — dark circles with green numbers */
+.exec-list { list-style: none; counter-reset: exec; margin: 0; padding: 0; }
+.exec-list li {
+  counter-increment: exec; position: relative;
+  padding-left: 30px; margin-bottom: 7px;
+  font-size: 9.5pt; color: var(--text-mid); line-height: 1.5;
+}
+.exec-list li::before {
+  content: counter(exec, decimal-leading-zero);
+  position: absolute; left: 0; top: 0;
+  background: var(--surface2); color: var(--green);
+  font-weight: 800; font-size: 6.5pt;
+  width: 20px; height: 20px; border-radius: 50%;
+  text-align: center; line-height: 20px;
+  border: 1px solid var(--border2);
+}
 
-/* CTA FOOTER */
-.cta-footer { margin-top: 0.22in; padding-top: 0.16in; border-top: 1px solid #E8E8E8; display: flex; align-items: center; gap: 9px; }
-.cta-footer img { width: 20px; height: 20px; border-radius: 4px; }
-.cta-footer .name { font-size: 9pt; font-weight: 700; color: #08151F; }
+/* ══════════════════════════════
+   PAGE 5 — CTA
+══════════════════════════════ */
+
+.cta-page { page: cta-page; page-break-before: always; }
+
+/* Green Grass accent bar */
+.cta-accent-bar { width: 0.4in; height: 3px; background: var(--green); margin-bottom: 0.2in; }
+
+.cta-headline {
+  font-size: 21pt; font-weight: 800; color: var(--text);
+  line-height: 1.2; max-width: 5.5in; margin-bottom: 12px; letter-spacing: -0.3px;
+}
+.cta-body {
+  font-size: 10.5pt; color: var(--text-mid); line-height: 1.65;
+  max-width: 4.2in; margin-bottom: 22px;
+}
+
+/* CTA button — Green Grass on dark bg */
+.cta-btn {
+  display: inline-block;
+  background: var(--green); color: var(--black) !important;
+  text-decoration: none; font-size: 10.5pt; font-weight: 700;
+  padding: 13px 28px; border-radius: 6px; letter-spacing: 0.2px;
+}
+.cta-note { margin-top: 10px; font-size: 9pt; color: var(--text-sub); }
+
+/* Connect cards */
+.connect-wrap { margin-top: 0.35in; padding-top: 0.18in; border-top: 1px solid var(--border); }
+.connect-lbl {
+  font-size: 7pt; font-weight: 700; color: var(--text-sub);
+  letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px;
+}
+.connect-cards { display: flex; gap: 12px; }
+.connect-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px 16px; width: 2.6in;
+}
+.connect-name { font-size: 10pt; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+.connect-co { font-size: 8.5pt; color: var(--text-sub); margin-bottom: 9px; }
+.connect-btn {
+  display: inline-block; border: 1px solid var(--border2); border-radius: 4px;
+  padding: 5px 10px; font-size: 8.5pt; font-weight: 600; color: var(--text); text-decoration: none;
+}
+
+.cta-footer { margin-top: 0.28in; display: flex; align-items: center; gap: 7px; }
+.cta-footer .wordmark { font-size: 10pt; font-weight: 700; color: var(--text); }
+
+/* Offer pillars */
+.offer-pillars {
+  display: flex; gap: 8px; margin: 0.18in 0 0.22in 0;
+}
+.offer-pillar {
+  flex: 1; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; padding: 10px 12px;
+}
+.offer-pillar.sprint  { border-top: 3px solid var(--gold); }
+.offer-pillar.retainer { border-top: 3px solid var(--blue); }
+.offer-pillar.guarantee { border-top: 3px solid var(--green); }
+.offer-pillar-title {
+  font-size: 9pt; font-weight: 800; color: var(--text);
+  margin-bottom: 4px; line-height: 1.2;
+}
+.offer-pillar.sprint   .offer-pillar-title { color: var(--gold); }
+.offer-pillar.retainer .offer-pillar-title { color: var(--blue); }
+.offer-pillar.guarantee .offer-pillar-title { color: var(--green); }
+.offer-pillar-body {
+  font-size: 8.5pt; color: var(--text-mid); line-height: 1.5;
+}
+
 </style>
 </head>
 <body>
 
 <!-- PAGE 1 -->
 <div class="logo-row">
-  <div class="logo-lockup">
-    <div class="sender-mark">
-      <img class="icon" src="assets/gtm_icon.png">
-      <span>gtmagency</span>
-    </div>
-    <span class="logo-x">x</span>
-    <div class="recipient-logo">
-      <img src="{{ company_logo_url }}" alt="">
-    </div>
+  <div class="sender-side">
+    <svg width="28" height="28" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" fill="none" style="flex-shrink:0;border-radius:7px;">
+      <rect width="64" height="64" rx="13" fill="#000000"/>
+      <text x="32" y="44" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-weight="800" font-size="30" fill="#f4f1ea" letter-spacing="-2">/G</text>
+      <circle cx="52" cy="12" r="5" fill="#8de3ba"/>
+    </svg>
+    <span class="wordmark">gtmagency</span>
+    <span class="logo-x">×</span>
+  </div>
+  <div class="recipient-logo">
+    {% if company_logo_url %}<img src="{{ company_logo_url }}" alt="{{ company_name }}">{% endif %}
   </div>
 </div>
 
-<div class="doc-label">Outbound Playbook / {{ company_name }}</div>
-<h1 class="doc-title">Your outbound playbook, {{ company_name }}.</h1>
+<div class="h-rule"></div>
 
-{% for para in intro_paragraphs %}
-<p class="intro-para">{{ para }}</p>
+<!-- VC SECTION -->
+<div class="vc-section">
+  <div class="vc-text">
+    <strong>Previously ran growth for 500+ SaaS companies through their product launches.</strong>
+    Our team has also worked with companies backed by
+  </div>
+  <div class="vc-logos">
+    <img src="assets/vc/sequoia.png" alt="Sequoia">
+    <img src="assets/vc/a16z.png" alt="a16z">
+    <img src="assets/vc/yc.png" alt="Y Combinator">
+    <img src="assets/vc/techstars.png" alt="Techstars">
+    <img src="assets/vc/lightspeed.png" alt="Lightspeed">
+    <img src="assets/vc/wing.png" alt="Wing">
+    <img src="assets/vc/boldstart.png" alt="Boldstart">
+  </div>
+</div>
+
+<div class="h-rule-thin"></div>
+
+<div class="doc-kicker">GTM Map / {{ company_name }}</div>
+<h1 class="doc-title">Your Go-To-Market Map, {{ company_name }}.</h1>
+
+{% for sentence in intro_text | sentences %}
+<p class="intro-para">{{ sentence }}</p>
 {% endfor %}
 
-<div class="proof-row">
+<div class="stats-bar">
   {% for stat in proof_stats %}
-  <div class="proof-item">
-    <div class="proof-num">{{ stat.value }}</div>
-    <div class="proof-desc">{{ stat.label }}</div>
+  <div class="stat-col">
+    <div class="stat-value">{{ stat.value }}</div>
+    <div class="stat-label">{{ stat.label }}</div>
   </div>
-  {% if not loop.last %}<div class="proof-divider"></div>{% endif %}
   {% endfor %}
 </div>
-<div class="backed-line">Previously ran growth for 500+ SaaS companies through their product launches. Team has also worked with companies backed by Sequoia, a16z, Y Combinator, Techstars, Lightspeed, Wing, and Boldstart.</div>
 
 {% if buyer_personas %}
-<div class="personas-label" style="margin-top:0.28in;">Decision makers at {{ company_name }}'s customers</div>
+<div class="dm-label">Decision Makers at {{ company_name }}'s Customers</div>
 <div class="persona-row">
-  {% for p in buyer_personas %}
-  <div class="persona-chip">{{ p }}</div>
+  {% for persona in buyer_personas %}
+  <div class="persona-chip">{{ persona }}</div>
   {% endfor %}
 </div>
 {% endif %}
 
 
-<!-- STRATEGIES -->
+<!-- STRATEGY PAGES -->
 {% for s in strategies %}
-<div class="strategy-section">
-  <div class="strategy-header">
-    <div class="sh-left">
-      <img src="assets/gtm_icon.png">
+<div class="strategy-page">
+
+  <div class="strat-pg-header">
+    <div class="strat-pg-left">
+      <svg width="22" height="22" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" fill="none" style="flex-shrink:0;border-radius:5px;">
+        <rect width="64" height="64" rx="13" fill="#000000"/>
+        <text x="32" y="44" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-weight="800" font-size="30" fill="#f4f1ea" letter-spacing="-2">/G</text>
+        <circle cx="52" cy="12" r="5" fill="#8de3ba"/>
+      </svg>
       <span>gtmagency</span>
-      <span class="sh-x">x</span>
+      <span class="strat-pg-sep">×</span>
       <span>{{ company_name }}</span>
     </div>
-    <div class="sh-right">Play {{ loop.index }} of {{ strategies|length }}</div>
+    <div class="strat-pg-right">Play {{ loop.index }} of {{ strategies|length }}</div>
   </div>
 
-  <div class="strategy-num">0{{ loop.index }}</div>
-  <div class="strategy-name">{{ s.strategyName }}</div>
-  <div class="strategy-goal">{{ s.goal }}</div>
+  <div class="strat-rule"></div>
+  <div class="strat-num-bg">0{{ loop.index }}</div>
+  <div class="strat-name">{{ s.strategyName }}</div>
+  <div class="strat-goal">{{ s.goal }}</div>
 
-  <div class="meta-row">
-    <div class="meta-item channel">
-      <div class="meta-label">Channel</div>
-      <div class="meta-value">{{ s.channel }}</div>
+  <div class="info-boxes">
+    <div class="info-box ch">
+      <div class="info-box-lbl">Channel</div>
+      <div class="info-box-val">{{ s.channel }}</div>
     </div>
-    <div class="meta-item target">
-      <div class="meta-label">Target</div>
-      <div class="meta-value">{{ s.targetPersona }}</div>
+    <div class="info-box tgt">
+      <div class="info-box-lbl">Target</div>
+      <div class="info-box-val">{{ s.targetPersona }}</div>
     </div>
-    <div class="meta-item tool">
-      <div class="meta-label">Tool</div>
-      <div class="meta-value">{{ s.technologyUsed }}</div>
+    <div class="info-box tl">
+      <div class="info-box-lbl">Tool</div>
+      <div class="info-box-val">{{ s.technologyUsed }}</div>
     </div>
   </div>
 
-  <div class="block-label">Why this fits {{ company_name }}</div>
-  <div class="why-body">{{ s.whyThisFitsYou }}</div>
+  <div class="sec-label">Why this fits {{ company_name }}</div>
+  <div class="why-box">{{ s.whyThisFitsYou }}</div>
 
-  <div class="block-label">Signal to watch for</div>
-  <div class="trigger-body">{{ s.triggerDefinition }}</div>
+  <div class="sec-label">Signal to watch for</div>
+  <div class="signal-box">{{ s.triggerDefinition }}</div>
 
-  <div class="block-label">How to run it</div>
+  <div class="sec-label">How to run it</div>
   <ol class="exec-list">
     {% for step in s.execution %}
-    <li>
-      <span class="exec-num">{{ "%02d"|format(loop.index) }}</span>
-      <span class="exec-text">{{ step }}</span>
-    </li>
+    <li>{{ step }}</li>
     {% endfor %}
   </ol>
+
 </div>
 {% endfor %}
 
 
-<!-- CTA -->
-<div class="cta-section">
-  <div class="cta-rule"></div>
-  <div class="cta-title">If this sounds like something you'd like to walk through, I'd be happy to run you through these plays and build out a complete strategy - no strings attached.</div>
-  <div class="cta-body">Grab 20 minutes with Leo. We'll walk through how these plays would be set up end to end for {{ company_name }}, what others we'd add, and how to get them live fast.</div>
-  <div class="cta-button-wrap">
-    <a class="cta-link" href="{{ calendly_link }}">Book a time with Leo</a>
-    <div class="cta-note">No pitch deck. Just a working session on your outbound.</div>
+<!-- CTA PAGE -->
+<div class="cta-page">
+  <div class="cta-accent-bar"></div>
+  <h2 class="cta-headline">Want someone to build and run this for {{ company_name }}?</h2>
+  <p class="cta-body">Grab 20 minutes with Leo. We'll walk through how these plays get set up end to end, what else we'd add for {{ company_name }}, and how fast we can get them live.</p>
+
+  <!-- Offer pillars -->
+  <div class="offer-pillars">
+    <div class="offer-pillar sprint">
+      <div class="offer-pillar-title">90-Day Sprint</div>
+      <div class="offer-pillar-body">We install the full system inside your business in 90 days - infrastructure, sequences, and live campaigns.</div>
+    </div>
+    <div class="offer-pillar retainer">
+      <div class="offer-pillar-title">No Retainer</div>
+      <div class="offer-pillar-body">You don't pay a retainer. Everything we build belongs to you from day one - data, playbooks, infrastructure.</div>
+    </div>
+    <div class="offer-pillar guarantee">
+      <div class="offer-pillar-title">Money-Back Guarantee</div>
+      <div class="offer-pillar-body">If the system doesn't work, you get a full refund. No questions, no small print.</div>
+    </div>
   </div>
 
-  <hr class="connect-rule">
-  <div class="connect-label">Connect with the team</div>
+  <a class="cta-btn" href="{{ calendly_link }}">Book a time with Leo</a>
+  <div class="cta-note">No strings attached. Just a mapping of your current systems and what could be improved.</div>
 
-  <div class="connect-cards">
-    <div class="connect-card">
-      <div class="connect-card-name">Leo Bosuener</div>
-      <div class="connect-card-org">GTM Agency</div>
-      <a class="connect-btn" href="https://www.linkedin.com/in/leo-bosuener1/">Connect on LinkedIn</a>
-    </div>
-    <div class="connect-card">
-      <div class="connect-card-name">Saba Bosuener</div>
-      <div class="connect-card-org">GTM Agency</div>
-      <a class="connect-btn" href="https://www.linkedin.com/in/saba-bosuener/">Connect on LinkedIn</a>
+  <div class="connect-wrap">
+    <div class="connect-lbl">Connect with the team</div>
+    <div class="connect-cards">
+      <div class="connect-card">
+        <div class="connect-name">Leo Bosuener</div>
+        <div class="connect-co">GTM Agency</div>
+        <a class="connect-btn" href="https://www.linkedin.com/in/leo-bosuener1/">Connect on LinkedIn</a>
+      </div>
+      <div class="connect-card">
+        <div class="connect-name">Saba Bosuener</div>
+        <div class="connect-co">GTM Agency</div>
+        <a class="connect-btn" href="https://www.linkedin.com/in/saba-bosuener/">Connect on LinkedIn</a>
+      </div>
     </div>
   </div>
 
   <div class="cta-footer">
-    <img src="assets/gtm_icon.png">
-    <span class="name">gtmagency</span>
+    <svg width="22" height="22" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" fill="none" style="border-radius:5px;">
+      <rect width="64" height="64" rx="13" fill="#000000"/>
+      <text x="32" y="44" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-weight="800" font-size="30" fill="#f4f1ea" letter-spacing="-2">/G</text>
+      <circle cx="52" cy="12" r="5" fill="#8de3ba"/>
+    </svg>
+    <span class="wordmark">gtmagency</span>
   </div>
 </div>
 
