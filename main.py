@@ -143,13 +143,15 @@ def get_calendly_slots() -> list[str]:
             return ["CALENDLY_ERROR: no active event types found"]
 
         now = datetime.now(timezone.utc)
+        start = now + timedelta(minutes=15)   # must be in the future
+        end   = now + timedelta(hours=72)
         avail = requests.get(
             "https://api.calendly.com/event_type_available_times",
             headers=headers,
             params={
                 "event_type": types[0]["uri"],
-                "start_time": now.strftime("%Y-%m-%dT%H:%M:%S.000000Z"),
-                "end_time":   (now + timedelta(hours=72)).strftime("%Y-%m-%dT%H:%M:%S.000000Z"),
+                "start_time": start.strftime("%Y-%m-%dT%H:%M:%S.000000Z"),
+                "end_time":   end.strftime("%Y-%m-%dT%H:%M:%S.000000Z"),
             },
             timeout=10,
         )
