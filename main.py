@@ -52,6 +52,8 @@ SLACK_WEBHOOK_URL    = os.environ.get("SLACK_WEBHOOK_URL",    "")
 PUBLIC_URL           = os.environ.get("PUBLIC_URL",           "").rstrip("/")
 LEO_LINKEDIN_URL     = os.environ.get("LEO_LINKEDIN_URL",     "https://www.linkedin.com/in/leo-bosuener1/")
 SABA_LINKEDIN_URL    = os.environ.get("SABA_LINKEDIN_URL",    "https://www.linkedin.com/in/saba-bosuener/")
+INSTANTLY_API_KEY    = os.environ.get("INSTANTLY_API_KEY",    "").strip()
+INSTANTLY_BASE_URL   = "https://api.instantly.ai/api/v2"
 
 # ── STATIC PROOF STATS ────────────────────────────────────────────────────────
 PROOF_STATS = [
@@ -108,6 +110,8 @@ class PayloadIn(BaseModel):
     intro_text:       str
     buyer_personas:   list[str]
     strategies:       list[Strategy]
+    email:            str = ""
+    campaign_id:      str = ""
 
 # ── GOOGLE DRIVE ──────────────────────────────────────────────────────────────
 def upload_to_drive(file_path: str, company_name: str) -> str | None:
@@ -188,10 +192,8 @@ def get_calendly_slots() -> list[str]:
     except Exception as e:
         return [f"CALENDLY_ERROR: exception — {str(e)[:150]}"]
 
-# ── SLACK ─────────────────────────────────────────────────────────────────────
-def post_to_slack(first_name: str, company_name: str, drive_url: str):
-    if not SLACK_WEBHOOK_URL:
-        return
+# ── REPLY TEXT ────────────────────────────────────────────────────────────────
+def build_reply_text(first_name: str, company_name: str, drive_url: str) -> str:
     slots   = get_calendly_slots()
     is_err  = any(s.startswith("CALENDLY_ERROR") for s in slots)
     if not is_err and len(slots) >= 2:
@@ -201,7 +203,7 @@ def post_to_slack(first_name: str, company_name: str, drive_url: str):
     else:
         time_pitch = f"Would love to find a time to chat. [DEBUG: {' | '.join(slots)}]"
 
-    reply = (
+    return (
         f"Hey {first_name}, great to hear back from you.\n\n"
         f"Here's the map I put together for {company_name}: {drive_url}\n\n"
         f"Would love to walk you through it and see where we could get your GTM moving.\n\n"
@@ -209,16 +211,104 @@ def post_to_slack(first_name: str, company_name: str, drive_url: str):
         f"If neither works, grab any time here: {CALENDLY_LINK}\n\n"
         f"Look forward to speaking soon.\nBest, Leo"
     )
-    payload = {"blocks": [
+
+
+def is_safe_to_autosend(reply_text: str) -> bool:
+    """Refuse to auto-send if the reply carries a debug/error artifact that
+    should never reach a real prospect (e.g. a Calendly lookup failure)."""
+    red_flags = ["CALENDLY_ERROR", "[DEBUG"]
+    return not any(flag in reply_text for flag in red_flags)
+
+
+# ── INSTANTLY (find thread + send reply) ─────────────────────────────────────
+def find_latest_inbound_email(lead_email: str, campaign_id: str = "") -> dict | None:
+    """Find the most recent email in this lead's thread — this is what we
+    reply to. READ-ONLY lookup, no side effects."""
+    if not INSTANTLY_API_KEY or not lead_email:
+        return None
+    try:
+        params = {
+            "lead": lead_email,
+            "latest_of_thread": "true",
+            "sort_order": "desc",
+            "limit": 1,
+        }
+        if campaign_id:
+            params["campaign_id"] = campaign_id
+        r = requests.get(
+            f"{INSTANTLY_BASE_URL}/emails",
+            headers={"Authorization": f"Bearer {INSTANTLY_API_KEY}"},
+            params=params,
+            timeout=15,
+        )
+        if r.status_code != 200:
+            print(f"Instantly email lookup failed ({r.status_code}): {r.text[:200]}")
+            return None
+        items = r.json().get("items", [])
+        return items[0] if items else None
+    except Exception as e:
+        print(f"Instantly email lookup error: {e}")
+        return None
+
+
+def send_reply(source_email: dict, reply_text: str) -> bool:
+    """Actually send the reply, threaded into the existing conversation."""
+    if not INSTANTLY_API_KEY:
+        return False
+    subject = source_email.get("subject") or ""
+    if not subject.lower().startswith("re:"):
+        subject = f"Re: {subject}"
+    payload = {
+        "eaccount": source_email.get("eaccount", ""),
+        "reply_to_uuid": source_email.get("id", ""),
+        "subject": subject,
+        "body": {"text": reply_text},
+    }
+    try:
+        r = requests.post(
+            f"{INSTANTLY_BASE_URL}/emails/reply",
+            headers={"Authorization": f"Bearer {INSTANTLY_API_KEY}", "Content-Type": "application/json"},
+            json=payload,
+            timeout=15,
+        )
+        if r.status_code not in (200, 201):
+            print(f"Instantly reply send failed ({r.status_code}): {r.text[:300]}")
+            return False
+        return True
+    except Exception as e:
+        print(f"Instantly reply send error: {e}")
+        return False
+
+
+# ── SLACK ─────────────────────────────────────────────────────────────────────
+def post_to_slack(first_name: str, company_name: str, drive_url: str, reply_text: str, autosend_status: str):
+    if not SLACK_WEBHOOK_URL:
+        return
+
+    status_labels = {
+        "sent":             ":white_check_mark: *Auto-sent to the lead*",
+        "unsafe":           ":warning: *NOT auto-sent — reply contained a debug/error artifact, needs manual review*",
+        "no_email":         ":warning: *NOT auto-sent — no lead email on this payload yet*",
+        "no_thread_found":  ":warning: *NOT auto-sent — couldn't find a matching email thread in Instantly*",
+        "send_failed":      ":x: *Auto-send failed — see Railway logs*",
+        "disabled":         "",  # INSTANTLY_API_KEY not set — old manual-copy behavior, no status line
+    }
+    status_line = status_labels.get(autosend_status, "")
+
+    blocks = [
         {"type": "section", "text": {"type": "mrkdwn",
             "text": f":large_green_circle: *New lead magnet — {first_name} / {company_name}*"}},
         {"type": "section", "text": {"type": "mrkdwn",
             "text": f"*Playbook:* <{drive_url}|Open in Google Drive>"}},
-        {"type": "divider"},
-        {"type": "section", "text": {"type": "mrkdwn", "text": f"*Reply to send:*\n```{reply}```"}},
-    ]}
+    ]
+    if status_line:
+        blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": status_line}})
+    blocks.append({"type": "divider"})
+    reply_heading = "Reply sent" if autosend_status == "sent" else "Reply to send"
+    blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": f"*{reply_heading}:*\n```{reply_text}```"}})
+
     try:
-        requests.post(SLACK_WEBHOOK_URL, json=payload, timeout=10)
+        requests.post(SLACK_WEBHOOK_URL, json={"blocks": blocks}, timeout=10)
     except Exception as e:
         print(f"Slack failed: {e}")
 
@@ -243,11 +333,32 @@ def generate(payload: PayloadIn):
         HTML(string=html_str, base_url=BASE_DIR).write_pdf(out_path)
 
         drive_url = upload_to_drive(out_path, payload.company_name)
+
+        autosend_status = "disabled"
+        reply_text = ""
         if drive_url:
-            post_to_slack(payload.first_name, payload.company_name, drive_url)
+            reply_text = build_reply_text(payload.first_name, payload.company_name, drive_url)
+
+            if not INSTANTLY_API_KEY:
+                autosend_status = "disabled"
+            elif not payload.email:
+                autosend_status = "no_email"
+            elif not is_safe_to_autosend(reply_text):
+                autosend_status = "unsafe"
+            else:
+                source_email = find_latest_inbound_email(payload.email, payload.campaign_id)
+                if not source_email:
+                    autosend_status = "no_thread_found"
+                else:
+                    autosend_status = "sent" if send_reply(source_email, reply_text) else "send_failed"
+
+            post_to_slack(payload.first_name, payload.company_name, drive_url, reply_text, autosend_status)
 
         pdf_url = f"{PUBLIC_URL}/files/{filename}" if PUBLIC_URL else f"/files/{filename}"
-        return JSONResponse({"drive_url": drive_url, "pdf_url": pdf_url, "filename": filename})
+        return JSONResponse({
+            "drive_url": drive_url, "pdf_url": pdf_url, "filename": filename,
+            "autosend_status": autosend_status,
+        })
 
     except Exception as e:
         return JSONResponse(status_code=500, content={
