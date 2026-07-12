@@ -54,6 +54,7 @@ LEO_LINKEDIN_URL     = os.environ.get("LEO_LINKEDIN_URL",     "https://www.linke
 SABA_LINKEDIN_URL    = os.environ.get("SABA_LINKEDIN_URL",    "https://www.linkedin.com/in/saba-bosuener/")
 INSTANTLY_API_KEY    = os.environ.get("INSTANTLY_API_KEY",    "").strip()
 INSTANTLY_BASE_URL   = "https://api.instantly.ai/api/v2"
+AUTOSEND_DRY_RUN     = os.environ.get("AUTOSEND_DRY_RUN", "false").strip().lower() == "true"
 
 # ── STATIC PROOF STATS ────────────────────────────────────────────────────────
 PROOF_STATS = [
@@ -287,6 +288,7 @@ def post_to_slack(first_name: str, company_name: str, drive_url: str, reply_text
 
     status_labels = {
         "sent":             ":white_check_mark: *Auto-sent to the lead*",
+        "dry_run":          ":test_tube: *DRY RUN — matched a real thread and would have sent this, but AUTOSEND_DRY_RUN is on. Nothing was sent.*",
         "unsafe":           ":warning: *NOT auto-sent — reply contained a debug/error artifact, needs manual review*",
         "no_email":         ":warning: *NOT auto-sent — no lead email on this payload yet*",
         "no_thread_found":  ":warning: *NOT auto-sent — couldn't find a matching email thread in Instantly*",
@@ -349,6 +351,9 @@ def generate(payload: PayloadIn):
                 source_email = find_latest_inbound_email(payload.email, payload.campaign_id)
                 if not source_email:
                     autosend_status = "no_thread_found"
+                elif AUTOSEND_DRY_RUN:
+                    print(f"[DRY RUN] Would reply to {payload.email} (thread {source_email.get('id')}, eaccount {source_email.get('eaccount')})")
+                    autosend_status = "dry_run"
                 else:
                     autosend_status = "sent" if send_reply(source_email, reply_text) else "send_failed"
 
