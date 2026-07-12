@@ -194,6 +194,16 @@ def get_calendly_slots() -> list[str]:
         return [f"CALENDLY_ERROR: exception — {str(e)[:150]}"]
 
 # ── REPLY TEXT ────────────────────────────────────────────────────────────────
+def reply_text_to_html(plain_text: str) -> str:
+    """Convert plain text with \\n\\n paragraph breaks (and single \\n line
+    breaks within a paragraph, e.g. a sign-off) into real HTML. Instantly's
+    own HTML auto-generation just wraps the whole string in one <body> tag
+    with no line breaks at all, collapsing every paragraph into a single
+    block — this is what actually controls spacing in the sent email."""
+    paragraphs = [p.strip() for p in plain_text.split("\n\n") if p.strip()]
+    return "".join(f"<p>{p.replace(chr(10), '<br>')}</p>" for p in paragraphs)
+
+
 def build_reply_text(first_name: str, company_name: str, drive_url: str) -> str:
     slots   = get_calendly_slots()
     is_err  = any(s.startswith("CALENDLY_ERROR") for s in slots)
@@ -263,7 +273,7 @@ def send_reply(source_email: dict, reply_text: str) -> bool:
         "eaccount": source_email.get("eaccount", ""),
         "reply_to_uuid": source_email.get("id", ""),
         "subject": subject,
-        "body": {"text": reply_text},
+        "body": {"text": reply_text, "html": reply_text_to_html(reply_text)},
     }
     try:
         r = requests.post(
