@@ -55,6 +55,11 @@ SABA_LINKEDIN_URL    = os.environ.get("SABA_LINKEDIN_URL",    "https://www.linke
 INSTANTLY_API_KEY    = os.environ.get("INSTANTLY_API_KEY",    "").strip()
 INSTANTLY_BASE_URL   = "https://api.instantly.ai/api/v2"
 AUTOSEND_DRY_RUN     = os.environ.get("AUTOSEND_DRY_RUN", "false").strip().lower() == "true"
+# "Lead Magnet Follow Up" custom Lead Label in Instantly — its interest_status
+# value, confirmed live via GET /api/v2/lead-labels. Setting a lead's interest
+# status to this value is what puts it into that label / triggers the
+# 1-day-after-no-response follow-up subsequence.
+LEAD_MAGNET_FOLLOWUP_INTEREST_VALUE = 52
 
 # ── STATIC PROOF STATS ────────────────────────────────────────────────────────
 PROOF_STATS = [
@@ -291,13 +296,42 @@ def send_reply(source_email: dict, reply_text: str) -> bool:
         return False
 
 
+def tag_lead_magnet_followup(lead_email: str, campaign_id: str = "") -> bool:
+    """Move the lead from its current interest status into the 'Lead Magnet
+    Follow Up' label, once the auto-reply has actually gone out. This is what
+    lets the separate follow-up subsequence trigger 1 day after no response."""
+    if not INSTANTLY_API_KEY or not lead_email:
+        return False
+    payload = {
+        "lead_email": lead_email,
+        "interest_value": LEAD_MAGNET_FOLLOWUP_INTEREST_VALUE,
+    }
+    if campaign_id:
+        payload["campaign_id"] = campaign_id
+    try:
+        r = requests.post(
+            f"{INSTANTLY_BASE_URL}/leads/update-interest-status",
+            headers={"Authorization": f"Bearer {INSTANTLY_API_KEY}", "Content-Type": "application/json"},
+            json=payload,
+            timeout=15,
+        )
+        if r.status_code not in (200, 201):
+            print(f"Instantly tag-followup failed ({r.status_code}): {r.text[:300]}")
+            return False
+        return True
+    except Exception as e:
+        print(f"Instantly tag-followup error: {e}")
+        return False
+
+
 # ── SLACK ─────────────────────────────────────────────────────────────────────
 def post_to_slack(first_name: str, company_name: str, drive_url: str, reply_text: str, autosend_status: str):
     if not SLACK_WEBHOOK_URL:
         return
 
     status_labels = {
-        "sent":             ":white_check_mark: *Auto-sent to the lead*",
+        "sent":             ":white_check_mark: *Auto-sent to the lead and tagged 'Lead Magnet Follow Up'*",
+        "sent_tag_failed":  ":warning: *Auto-sent to the lead, but tagging as 'Lead Magnet Follow Up' FAILED — needs manual status change, see Railway logs*",
         "dry_run":          ":test_tube: *DRY RUN — matched a real thread and would have sent this, but AUTOSEND_DRY_RUN is on. Nothing was sent.*",
         "unsafe":           ":warning: *NOT auto-sent — reply contained a debug/error artifact, needs manual review*",
         "no_email":         ":warning: *NOT auto-sent — no lead email on this payload yet*",
@@ -316,7 +350,7 @@ def post_to_slack(first_name: str, company_name: str, drive_url: str, reply_text
     if status_line:
         blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": status_line}})
     blocks.append({"type": "divider"})
-    reply_heading = "Reply sent" if autosend_status == "sent" else "Reply to send"
+    reply_heading = "Reply sent" if autosend_status in ("sent", "sent_tag_failed") else "Reply to send"
     blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": f"*{reply_heading}:*\n```{reply_text}```"}})
 
     try:
@@ -366,6 +400,9 @@ def generate(payload: PayloadIn):
                     autosend_status = "dry_run"
                 else:
                     autosend_status = "sent" if send_reply(source_email, reply_text) else "send_failed"
+                    if autosend_status == "sent":
+                        tagged = tag_lead_magnet_followup(payload.email, payload.campaign_id)
+                        autosend_status = "sent" if tagged else "sent_tag_failed"
 
             post_to_slack(payload.first_name, payload.company_name, drive_url, reply_text, autosend_status)
 
