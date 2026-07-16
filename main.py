@@ -118,7 +118,7 @@ LEAD_MAGNET_FOLLOWUP_INTEREST_VALUE = 52
 
 # ── STATIC PROOF STATS ────────────────────────────────────────────────────────
 PROOF_STATS = [
-    {"value": "$7.8M",  "label": "Pipeline generated for AirOps"},
+    {"value": "$1.53M", "label": "Revenue generated for AirOps"},
     {"value": "100/mo", "label": "Meetings booked for Peoplelogic"},
     {"value": "500+",   "label": "SaaS companies scaled"},
 ]
