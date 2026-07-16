@@ -108,6 +108,11 @@ html, body {
   font-size: 7.5pt; font-weight: 600; color: var(--text-sub);
   letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 5px;
 }
+.offer-badge {
+  display: inline-block; font-size: 10.5pt; font-weight: 800;
+  color: var(--gold); letter-spacing: 0.2px; margin-bottom: 9px;
+  padding: 5px 11px; border: 1.2px solid var(--gold); border-radius: 4px;
+}
 h1.doc-title {
   font-size: 25pt; font-weight: 800; color: var(--text);
   line-height: 1.15; letter-spacing: -0.7px; margin-bottom: 14px;
@@ -342,15 +347,11 @@ h1.doc-title {
 
 <div class="h-rule-thin"></div>
 
-<div class="doc-kicker">GTM Map / {{ company_name }}</div>
+<div class="offer-badge">Booked, qualified demos within 45 days or we work for free</div>
 <h1 class="doc-title">Your Go-To-Market Map, {{ company_name }}.</h1>
 
 {% for sentence in intro_text | sentences %}
-  {% if loop.first %}
 <p class="intro-para">{{ sentence | bold_offer | safe }}</p>
-  {% else %}
-<p class="intro-para">{{ sentence }}</p>
-  {% endif %}
 {% endfor %}
 
 <div class="stats-bar">
@@ -440,16 +441,16 @@ h1.doc-title {
   <!-- Offer pillars -->
   <div class="offer-pillars">
     <div class="offer-pillar sprint">
-      <div class="offer-pillar-title">90-Day Sprint</div>
-      <div class="offer-pillar-body">We install the full system inside your business in 90 days - infrastructure, sequences, and live campaigns.</div>
+      <div class="offer-pillar-title">Demos in 45 Days</div>
+      <div class="offer-pillar-body">You'll have qualified demos booked in your calendar within 45 days - infrastructure, sequences, and live campaigns installed for you.</div>
     </div>
     <div class="offer-pillar retainer">
       <div class="offer-pillar-title">No Retainer</div>
       <div class="offer-pillar-body">You don't pay a retainer. Everything we build belongs to you from day one - data, playbooks, infrastructure.</div>
     </div>
     <div class="offer-pillar guarantee">
-      <div class="offer-pillar-title">Money-Back Guarantee</div>
-      <div class="offer-pillar-body">If the system doesn't work, you get a full refund. No questions, no small print.</div>
+      <div class="offer-pillar-title">We Work Free Until It Works</div>
+      <div class="offer-pillar-body">If by day 45 you aren't seeing qualified demos booked in your calendar, we keep working completely for free until you do.</div>
     </div>
   </div>
 

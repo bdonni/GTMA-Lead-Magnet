@@ -24,20 +24,69 @@ def _split_sentences(text: str) -> list[str]:
     return [p.strip() for p in parts if p.strip()]
 
 def _bold_offer(sentence: str) -> str:
-    """Bold 'we build AI-assisted X' and '90-day sprint...' in the Leo intro sentence."""
+    """Bold 'we build AI-assisted X' and the 45-day guarantee in the intro."""
     # Bold "we build AI-assisted X" up to the next clause boundary
     sentence = re.sub(
         r'(we build AI-assisted [\w\s]+?)(\s+for\b|\s+to\b|\s+at\b|,)',
         r'<strong>\1</strong>\2',
         sentence, flags=re.IGNORECASE
     )
-    # Bold "90-day sprint" through the end of the sentence
+    # Bold the 45-day guarantee sentence
     sentence = re.sub(
-        r'(90-day sprint[^.]*\.)',
+        r'(If by day 45[^.]*\.)',
         r'<strong>\1</strong>',
         sentence, flags=re.IGNORECASE
     )
     return sentence
+
+
+# ── COMPANY NAME + INTRO NORMALISATION ────────────────────────────────────────
+_DESCRIPTOR = ("Technologies|Technology|Solutions|Systems|Labs|Corporation|Analytics|"
+               "Global|Digital|Group|Consulting|International|Ventures|Studios|Studio|"
+               "Works|Media|Networks|Network|Platform|Platforms|Holdings")
+_DESCRIPTOR_RE = re.compile(rf"\s+({_DESCRIPTOR})\s*$", re.IGNORECASE)
+_ALL_CAPS_RE = re.compile(r"^[A-Z0-9\s&.'\-]+$")
+_ALL_LOWER_RE = re.compile(r"^[a-z0-9\s&.'\-]+$")
+
+
+def clean_company_name(raw: str) -> str:
+    """Normalise a company name for conversational use: strip legal suffixes,
+    taglines, trailing ' AI'/'.io' etc., and fix casing. 'Volt, Inc.' -> 'Volt'."""
+    s = (raw or "").strip()
+    s = re.sub(r"\s+is now\s+.+$", "", s, flags=re.IGNORECASE)
+    s = re.sub(r"\s*[:|/]\s*.+$", "", s)                    # drop taglines after : | /
+    s = re.sub(r"\s*\([^)]*\)\s*$", "", s)                  # drop trailing (...)
+    # strip legal suffixes, with or without a leading comma, possibly repeated
+    for _ in range(2):
+        s = re.sub(r",?\s+(Inc\.?|LLC\.?|L\.L\.C\.?|Corp(oration)?\.?|Ltd\.?|Co\.?|"
+                   r"LP|LLP|PLC|GmbH|S\.?A\.?|Pty\.?|Limited|Incorporated)\s*$",
+                   "", s, flags=re.IGNORECASE).strip()
+    s = re.sub(r"\.(com|io|net|co|ai|app)\b", "", s, flags=re.IGNORECASE)
+    s = re.sub(r"\s+AI\s*$", "", s)                         # trailing " AI"
+    s = _DESCRIPTOR_RE.sub("", s).strip()
+    s = s.rstrip(" ,.-").strip()
+    if s and _ALL_CAPS_RE.match(s) and len(s) > 4:
+        s = s.title()
+    elif s and _ALL_LOWER_RE.match(s):
+        s = s[:1].upper() + s[1:]
+    return s
+
+
+def normalise_intro(text: str) -> str:
+    """Swap any old sprint/money-back-guarantee offer wording for the locked
+    45-day guarantee. Robust to phrasing variations from the Clay prompt."""
+    t = (text or "").strip()
+    guarantee = ("If by day 45 you aren't seeing qualified demos booked in your "
+                 "calendar, we work completely for free until you do.")
+    m = re.search(r'90[\s-]?day sprint', t, re.IGNORECASE)
+    if m:
+        head = t[:m.start()]
+        # trim a trailing connector like ", installed in a " / " in a "
+        head = re.sub(r'[,;]?\s*(installed\s+in\s+a|in\s+a)?\s*$', '', head).rstrip()
+        head = head.rstrip(" ,;")
+        t = f"{head}. {guarantee}"
+    return t
+
 
 env.filters["sentences"]   = _split_sentences
 env.filters["bold_offer"]  = _bold_offer
@@ -423,6 +472,10 @@ def health():
 def generate(payload: PayloadIn):
     try:
         ctx = payload.dict()
+        # Normalise the company name for every use in the doc (strip Inc/LLC/
+        # taglines, fix casing) and lock the intro's guarantee wording.
+        ctx["company_name"]     = clean_company_name(payload.company_name)
+        ctx["intro_text"]       = normalise_intro(payload.intro_text)
         ctx["calendly_link"]    = CALENDLY_LINK
         ctx["proof_stats"]      = PROOF_STATS
         ctx["date"]             = datetime.now().strftime("%B %Y")
