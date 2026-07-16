@@ -72,20 +72,65 @@ def clean_company_name(raw: str) -> str:
     return s
 
 
+GUARANTEE_LINE = ("If by day 45 you aren't seeing qualified demos booked in your "
+                  "calendar, we work completely for free until you do.")
+
+# Any sentence the AI writes about the offer/guarantee/timeline/pricing gets
+# force-replaced with GUARANTEE_LINE. This must NOT depend on one exact phrase
+# (Clay's AI phrases it differently every lead - "90-day sprint", "running in
+# 90 days", "money back", "no questions asked", etc.). Matching ANY of these
+# markers is what makes the replacement bulletproof.
+_OFFER_MARKERS = re.compile(
+    r'\b(retainer|money[\s-]?back|moneyback|refund(?:ed|s)?|guarantee[ds]?|'
+    r'\d+[\s-]?day sprint|sprint|\d+[\s-]?days?|no questions asked|'
+    r'for free|free until|get your money|money[\s-]?back guarantee|'
+    r'running in\s+\d+|up and running|no small print)\b',
+    re.IGNORECASE,
+)
+_CLOSING_RE = re.compile(r'\b(with that in mind|here are (the |)?(three|3|a few|some)|'
+                         r'here(?:\'s| is) (how|what|three|3))\b', re.IGNORECASE)
+# If an offer sentence also greets/identifies (offer is inline with the intro),
+# keep the greeting - only cut the offer clause off the end, never drop it whole.
+_IDENTITY_RE = re.compile(r"(i'?m leo|gtm agency|go-to-market|we build ai|"
+                          r"backed by|^\s*(hi|hey|hello)\b)", re.IGNORECASE)
+
+
+def _strip_offer_clause(sentence: str) -> str:
+    """Cut a trailing offer/guarantee clause off a sentence, keeping the head."""
+    m = _OFFER_MARKERS.search(sentence)
+    if not m:
+        return sentence.strip()
+    head = sentence[:m.start()]
+    head = re.sub(r'[\s,;-]*(installed in a|and have it running in|and have it|'
+                  r'we get in[^,]*|in a|with a|and)?\s*$', '', head, flags=re.IGNORECASE)
+    return head.rstrip(' ,;-')
+
+
 def normalise_intro(text: str) -> str:
-    """Swap any old sprint/money-back-guarantee offer wording for the locked
-    45-day guarantee. Robust to phrasing variations from the Clay prompt."""
-    t = (text or "").strip()
-    guarantee = ("If by day 45 you aren't seeing qualified demos booked in your "
-                 "calendar, we work completely for free until you do.")
-    m = re.search(r'90[\s-]?day sprint', t, re.IGNORECASE)
-    if m:
-        head = t[:m.start()]
-        # trim a trailing connector like ", installed in a " / " in a "
-        head = re.sub(r'[,;]?\s*(installed\s+in\s+a|in\s+a)?\s*$', '', head).rstrip()
-        head = head.rstrip(" ,;")
-        t = f"{head}. {guarantee}"
-    return t
+    """Force the intro to carry EXACTLY our locked 45-day guarantee, no matter
+    how Clay's AI phrased the offer. Any sentence with offer/guarantee/timeline/
+    pricing language is replaced in place by GUARANTEE_LINE; extra such
+    sentences are dropped. A greeting/identity sentence is never dropped whole -
+    only its offer clause is cut. If the AI wrote no offer sentence at all, the
+    guarantee is inserted just before the 'here are three plays' closing line."""
+    sentences = _split_sentences((text or "").strip())
+    out, inserted = [], False
+    for s in sentences:
+        if _OFFER_MARKERS.search(s):
+            if _IDENTITY_RE.search(s):
+                head = _strip_offer_clause(s)
+                if head:
+                    out.append(head if head.endswith((".", "!", "?")) else head + ".")
+            if not inserted:
+                out.append(GUARANTEE_LINE)
+                inserted = True
+            # any further offer-only sentences are dropped
+        else:
+            out.append(s)
+    if not inserted:
+        pos = next((i for i, s in enumerate(out) if _CLOSING_RE.search(s)), len(out))
+        out.insert(pos, GUARANTEE_LINE)
+    return " ".join(out)
 
 
 env.filters["sentences"]   = _split_sentences
