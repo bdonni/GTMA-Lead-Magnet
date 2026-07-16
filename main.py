@@ -1,4 +1,4 @@
-import os, uuid, json, traceback, requests, re
+import os, uuid, json, traceback, requests, re, time
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 
@@ -55,6 +55,12 @@ SABA_LINKEDIN_URL    = os.environ.get("SABA_LINKEDIN_URL",    "https://www.linke
 INSTANTLY_API_KEY    = os.environ.get("INSTANTLY_API_KEY",    "").strip()
 INSTANTLY_BASE_URL   = "https://api.instantly.ai/api/v2"
 AUTOSEND_DRY_RUN     = os.environ.get("AUTOSEND_DRY_RUN", "false").strip().lower() == "true"
+# Close CRM: write the generated PDF link onto the lead's record so it lives
+# on the one centralised Close lead alongside the reply/phone/brief/debrief.
+CLOSE_API_KEY        = os.environ.get("CLOSE_API_KEY",        "").strip()
+CLOSE_BASE_URL       = "https://api.close.com/api/v1"
+# Custom field "Lead Magnet PDF" on Close leads (created via API 2026-07-15).
+CLOSE_PDF_FIELD_ID   = "cf_q5HFmIkiYRfdAuvckomB6PleRrtySLyUZCEYxJAhdD5"
 # "Lead Magnet Follow Up" custom Lead Label in Instantly — its interest_status
 # value, confirmed live via GET /api/v2/lead-labels. Setting a lead's interest
 # status to this value is what puts it into that label / triggers the
@@ -325,6 +331,56 @@ def tag_lead_magnet_followup(lead_email: str, campaign_id: str = "") -> bool:
 
 
 # ── SLACK ─────────────────────────────────────────────────────────────────────
+def push_pdf_to_close(lead_email: str, drive_url: str) -> str:
+    """Write the lead-magnet PDF link onto the lead's Close record.
+
+    Finds the lead by email (Clay's Create Lead in the positive-response table
+    normally creates it first, and that quick API call finishes well before
+    this PDF render does, so the lead is almost always already there). Retries
+    the lookup a couple of times as insurance against the race, then PATCHes
+    the 'Lead Magnet PDF' custom field. Never raises - this is best-effort and
+    must not affect PDF generation or the auto-reply.
+    """
+    if not CLOSE_API_KEY or not lead_email or not drive_url:
+        return "disabled"
+    auth = (CLOSE_API_KEY, "")
+    lead_id = None
+    for attempt in range(3):
+        try:
+            r = requests.get(
+                f"{CLOSE_BASE_URL}/lead/",
+                auth=auth,
+                params={"query": f"email_address:{lead_email}", "_limit": 1},
+                timeout=15,
+            )
+            if r.status_code == 200:
+                data = r.json().get("data") or []
+                if data:
+                    lead_id = data[0].get("id")
+                    break
+        except Exception as e:
+            print(f"Close lead lookup error: {e}")
+        time.sleep(4)
+    if not lead_id:
+        print(f"Close: no lead found for {lead_email} after retries, PDF link not written")
+        return "no_lead_found"
+    try:
+        r = requests.put(
+            f"{CLOSE_BASE_URL}/lead/{lead_id}/",
+            auth=auth,
+            headers={"Content-Type": "application/json"},
+            json={f"custom.{CLOSE_PDF_FIELD_ID}": drive_url},
+            timeout=15,
+        )
+        if r.status_code not in (200, 201):
+            print(f"Close PDF write failed ({r.status_code}): {r.text[:300]}")
+            return "write_failed"
+        return "written"
+    except Exception as e:
+        print(f"Close PDF write error: {e}")
+        return "write_failed"
+
+
 def post_to_slack(first_name: str, company_name: str, drive_url: str, reply_text: str, autosend_status: str):
     if not SLACK_WEBHOOK_URL:
         return
@@ -406,10 +462,20 @@ def generate(payload: PayloadIn):
 
             post_to_slack(payload.first_name, payload.company_name, drive_url, reply_text, autosend_status)
 
+        # Best-effort: write the PDF link onto the lead's Close record so it
+        # collects on the one centralised lead. Never blocks the response.
+        close_pdf_status = "disabled"
+        if drive_url and payload.email:
+            try:
+                close_pdf_status = push_pdf_to_close(payload.email, drive_url)
+            except Exception as e:
+                print(f"Close PDF push unexpected error: {e}")
+                close_pdf_status = "write_failed"
+
         pdf_url = f"{PUBLIC_URL}/files/{filename}" if PUBLIC_URL else f"/files/{filename}"
         return JSONResponse({
             "drive_url": drive_url, "pdf_url": pdf_url, "filename": filename,
-            "autosend_status": autosend_status,
+            "autosend_status": autosend_status, "close_pdf_status": close_pdf_status,
         })
 
     except Exception as e:
