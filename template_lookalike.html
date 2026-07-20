@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+/* ── GTM AGENCY BRAND TOKENS ── */
+:root {
+  --black:    #000000;
+  --gold:     #c2a983;
+  --blue:     #9ec3f8;
+  --green:    #8de3ba;
+
+  --bg:       #0d0b0a;
+  --surface:  #1a1817;
+  --surface2: #211f1e;
+  --border:   #2e2b2a;
+  --border2:  #383433;
+
+  --text:     #f4f1ea;
+  --text-mid: #a09890;
+  --text-sub: #6b6460;
+
+  --font:     'Inter', Arial, Helvetica, sans-serif;
+}
+
+/* ── PAGES ── */
+@page {
+  size: Letter;
+  margin: 0.65in 0.75in 0.8in 0.75in;
+  background: #0d0b0a;
+  @bottom-center {
+    content: counter(page) " / " counter(pages);
+    font-family: 'Inter', Arial, sans-serif;
+    font-size: 7.5pt;
+    color: #4c4548;
+  }
+}
+@page cta-page {
+  size: Letter;
+  margin: 0.65in 0.75in 0.65in 0.75in;
+  background: #0d0b0a;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── HEADER ── */
+.logo-row { display: flex; align-items: center; justify-content: space-between; }
+.sender-side { display: flex; align-items: center; gap: 9px; }
+.wordmark { font-size: 11pt; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
+.logo-x { color: var(--border2); font-weight: 300; font-size: 13pt; line-height: 1; }
+.co-logo { height: 22px; max-width: 120px; object-fit: contain; }
+.h-rule { height: 1px; background: var(--border); margin: 0.14in 0 0.2in; }
+
+/* ── HERO ── */
+.kicker {
+  display: inline-block; font-size: 7.5pt; font-weight: 700; text-transform: uppercase;
+  color: var(--gold); letter-spacing: 0.8px; margin-bottom: 11px;
+  padding: 5px 11px; border: 1.2px solid var(--gold); border-radius: 4px;
+}
+.hero-h1 { font-size: 25pt; font-weight: 800; color: var(--text); line-height: 1.12; letter-spacing: -0.5px; }
+.hero-h1 .seed { color: var(--gold); }
+.intro-para { font-size: 10.5pt; line-height: 1.7; color: var(--text-mid); margin-top: 12px; max-width: 6.2in; }
+
+/* ── STATS BAR ── */
+.stats-bar {
+  display: flex; margin: 0.28in 0; padding: 0.16in 0;
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.stat-col { flex: 1; padding-left: 16px; border-left: 1px solid var(--border); }
+.stat-col:first-child { padding-left: 0; border-left: none; }
+.stat-value { font-size: 18pt; font-weight: 800; color: var(--gold); }
+.stat-label { font-size: 7.5pt; font-weight: 400; color: var(--text-sub); margin-top: 2px; }
+
+/* ── TIER SECTION ── */
+.tier { margin-top: 0.26in; }
+.tier-head { display: flex; align-items: baseline; gap: 9px; margin-bottom: 3px; }
+.tier-name { font-size: 10.5pt; font-weight: 800; color: var(--text); letter-spacing: 0.2px; }
+.tier-name .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; vertical-align: middle; }
+.tier-1 .dot { background: var(--green); }
+.tier-2 .dot { background: var(--gold); }
+.tier-3 .dot { background: var(--blue); }
+.tier-sub { font-size: 7.5pt; font-weight: 500; color: var(--text-sub); }
+.tier-count { margin-left: auto; font-size: 7.5pt; font-weight: 700; color: var(--text-sub); }
+.tier-rule { height: 1px; background: var(--border); margin-bottom: 6px; }
+
+/* ── COMPANY ROWS ── */
+.co-list { width: 100%; border-collapse: collapse; }
+.co-list th {
+  text-align: left; font-size: 6.5pt; font-weight: 700; text-transform: uppercase;
+  color: var(--text-sub); letter-spacing: 0.5px; padding: 4px 8px 5px 8px;
+}
+.co-row { page-break-inside: avoid; }
+.co-row td {
+  font-size: 8.5pt; color: var(--text-mid); padding: 6px 8px;
+  border-top: 1px solid var(--border); vertical-align: middle;
+}
+.co-num { color: var(--text-sub); font-weight: 700; width: 0.3in; }
+.co-name { font-weight: 700; color: var(--text); font-size: 9pt; }
+.co-domain { font-size: 7.5pt; color: var(--gold); margin-top: 1px; }
+.co-ind { max-width: 2.1in; }
+.co-size { white-space: nowrap; }
+.co-loc { white-space: nowrap; }
+
+/* ── METHOD NOTE ── */
+.method {
+  margin-top: 0.3in; padding: 12px 15px; background: var(--surface);
+  border-left: 3px solid var(--green); border-radius: 5px;
+}
+.method-lbl { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; color: var(--text-sub); letter-spacing: 0.5px; margin-bottom: 5px; }
+.method-body { font-size: 8.5pt; line-height: 1.55; color: var(--text-mid); }
+
+/* ── CTA PAGE ── */
+.cta-page { page: cta-page; page-break-before: always; }
+.cta-accent-bar { width: 0.4in; height: 3px; background: var(--green); margin-bottom: 0.2in; }
+.cta-headline { font-size: 21pt; font-weight: 800; color: var(--text); line-height: 1.15; letter-spacing: -0.4px; }
+.cta-body { font-size: 10.5pt; color: var(--text-mid); line-height: 1.65; margin-top: 12px; max-width: 6in; }
+.offer-pillars { display: flex; gap: 12px; margin-top: 0.3in; }
+.offer-pillar { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px 15px; }
+.offer-pillar.sprint  { border-top: 3px solid var(--gold); }
+.offer-pillar.retainer { border-top: 3px solid var(--blue); }
+.offer-pillar.guarantee { border-top: 3px solid var(--green); }
+.offer-pillar-title { font-size: 9pt; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+.offer-pillar.sprint   .offer-pillar-title { color: var(--gold); }
+.offer-pillar.retainer .offer-pillar-title { color: var(--blue); }
+.offer-pillar.guarantee .offer-pillar-title { color: var(--green); }
+.offer-pillar-body { font-size: 8pt; line-height: 1.5; color: var(--text-mid); }
+.cta-btn {
+  display: inline-block; margin-top: 0.3in; background: var(--green); color: var(--black);
+  font-size: 10.5pt; font-weight: 700; text-decoration: none; padding: 11px 22px; border-radius: 6px;
+}
+.cta-note { margin-top: 10px; font-size: 9pt; color: var(--text-sub); }
+.cta-footer { margin-top: 0.3in; display: flex; align-items: center; gap: 7px; }
+.cta-footer .wordmark { font-size: 10pt; font-weight: 700; color: var(--text); }
+
+</style>
+</head>
+<body>
+
+<!-- PAGE 1 -->
+<div class="logo-row">
+  <div class="sender-side">
+    <svg width="28" height="28" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" fill="none" style="flex-shrink:0;border-radius:7px;">
+      <rect width="64" height="64" rx="13" fill="#000000"/>
+      <text x="32" y="44" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-weight="800" font-size="30" fill="#f4f1ea" letter-spacing="-2">/G</text>
+      <circle cx="52" cy="12" r="5" fill="#8de3ba"/>
+    </svg>
+    <span class="wordmark">gtmagency</span>
+    {% if company_logo_url %}<span class="logo-x">×</span><img class="co-logo" src="{{ company_logo_url }}" alt="{{ company_name }}">{% endif %}
+  </div>
+</div>
+
+<div class="h-rule"></div>
+
+<div class="kicker">Lookalike Map · Built for {{ company_name }}</div>
+<h1 class="hero-h1">{{ total_count }} companies that look like <span class="seed">{{ seed_customer_name }}</span></h1>
+<p class="intro-para">{{ intro_text }}</p>
+
+<div class="stats-bar">
+  {% for stat in proof_stats %}
+  <div class="stat-col">
+    <div class="stat-value">{{ stat.value }}</div>
+    <div class="stat-label">{{ stat.label }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+{% for tier in tiers %}
+{% if tier.companies %}
+<div class="tier tier-{{ tier.n }}">
+  <div class="tier-head">
+    <div class="tier-name"><span class="dot"></span>{{ tier.name }}</div>
+    <div class="tier-sub">{{ tier.sub }}</div>
+    <div class="tier-count">{{ tier.companies | length }} companies</div>
+  </div>
+  <div class="tier-rule"></div>
+  <table class="co-list">
+    <thead>
+      <tr><th class="co-num">#</th><th>Company</th><th>Industry</th><th>Size</th><th>Location</th></tr>
+    </thead>
+    <tbody>
+      {% for c in tier.companies %}
+      <tr class="co-row">
+        <td class="co-num">{{ c.n }}</td>
+        <td><div class="co-name">{{ c.name }}</div>{% if c.domain %}<div class="co-domain">{{ c.domain }}</div>{% endif %}</td>
+        <td class="co-ind">{{ c.industry }}</td>
+        <td class="co-size">{{ c.size }}</td>
+        <td class="co-loc">{{ c.location }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endfor %}
+
+<div class="method">
+  <div class="method-lbl">How this list was built</div>
+  <div class="method-body">I took {{ seed_customer_name }}, one of your customers, and pulled the companies that match them most closely on size, industry, and market - then ranked them by how close the match is. Tier 1 is where I'd start. No guessing who to go after next, the list is right here.</div>
+</div>
+
+<!-- CTA PAGE -->
+<div class="cta-page">
+  <div class="cta-accent-bar"></div>
+  <h2 class="cta-headline">Want someone to build the campaign that lands these?</h2>
+  <p class="cta-body">Grab 20 minutes with Leo. I'll walk through how I'd turn this list into booked demos for {{ company_name }} - the sequences, the infrastructure, all installed and run for you.</p>
+
+  <div class="offer-pillars">
+    <div class="offer-pillar sprint">
+      <div class="offer-pillar-title">Demos in 45 Days</div>
+      <div class="offer-pillar-body">You'll have qualified demos booked in your calendar within 45 days - infrastructure, sequences, and live campaigns installed for you.</div>
+    </div>
+    <div class="offer-pillar retainer">
+      <div class="offer-pillar-title">No Retainer</div>
+      <div class="offer-pillar-body">You don't pay a retainer. Everything I build belongs to you from day one - data, playbooks, infrastructure.</div>
+    </div>
+    <div class="offer-pillar guarantee">
+      <div class="offer-pillar-title">We Work Free Until It Works</div>
+      <div class="offer-pillar-body">If by day 45 you aren't seeing qualified demos booked in your calendar, I keep working completely for free until you do.</div>
+    </div>
+  </div>
+
+  <a class="cta-btn" href="{{ calendly_link }}">Book a time with Leo</a>
+  <div class="cta-note">Or just reply to my email and I'll send over the first sequence.</div>
+
+  <div class="cta-footer">
+    <svg width="22" height="22" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" fill="none" style="border-radius:6px;">
+      <rect width="64" height="64" rx="13" fill="#000000"/>
+      <text x="32" y="44" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-weight="800" font-size="30" fill="#f4f1ea" letter-spacing="-2">/G</text>
+      <circle cx="52" cy="12" r="5" fill="#8de3ba"/>
+    </svg>
+    <span class="wordmark">gtmagency</span>
+  </div>
+</div>
+
+</body>
+</html>

@@ -136,6 +136,7 @@ def normalise_intro(text: str) -> str:
 env.filters["sentences"]   = _split_sentences
 env.filters["bold_offer"]  = _bold_offer
 template = env.get_template("template.html")
+template_lookalike = env.get_template("template_lookalike.html")
 
 # ── ENV VARS ──────────────────────────────────────────────────────────────────
 CALENDLY_LINK        = os.environ.get("CALENDLY_LINK",        "https://calendly.com/thegtmagency/")
@@ -148,6 +149,17 @@ LEO_LINKEDIN_URL     = os.environ.get("LEO_LINKEDIN_URL",     "https://www.linke
 SABA_LINKEDIN_URL    = os.environ.get("SABA_LINKEDIN_URL",    "https://www.linkedin.com/in/saba-bosuener/")
 INSTANTLY_API_KEY    = os.environ.get("INSTANTLY_API_KEY",    "").strip()
 INSTANTLY_BASE_URL   = "https://api.instantly.ai/api/v2"
+# Ocean.io lookalike search — powers the lookalike lead magnet (/generate-lookalike).
+# Reuses the same key/filters as the standalone lookalike agent.
+OCEAN_API_KEY        = os.environ.get("OCEAN_API_KEY",        "").strip()
+OCEAN_BASE_URL       = "https://api.ocean.io"
+OCEAN_COUNTRIES      = ["US", "GB", "CA", "FR", "DE", "ES", "NL", "BE", "AU"]
+OCEAN_COMPANY_SIZES  = ["11-50", "51-200", "201-500", "501-1000"]
+OCEAN_FIELDS         = ["name", "domain", "companySize", "industries",
+                        "industryCategories", "linkedinIndustry",
+                        "employeeCountOcean", "locations.primary",
+                        "locations.locality", "locations.region",
+                        "locations.country"]
 AUTOSEND_DRY_RUN     = os.environ.get("AUTOSEND_DRY_RUN", "false").strip().lower() == "true"
 # Close CRM: write the generated PDF link onto the lead's record so it lives
 # on the one centralised Close lead alongside the reply/phone/brief/debrief.
@@ -218,6 +230,89 @@ class PayloadIn(BaseModel):
     strategies:       list[Strategy]
     email:            str = ""
     campaign_id:      str = ""
+
+
+class LookalikePayloadIn(BaseModel):
+    first_name:         str
+    company_name:       str
+    seed_domain:        str            # the prospect's own best customer's domain (the Ocean seed)
+    seed_customer_name: str            # display name for that customer, e.g. "Ramp"
+    company_logo_url:   str = ""
+    email:              str = ""
+    campaign_id:        str = ""
+    size:               int = 60       # how many lookalikes to request from Ocean
+
+
+# ── OCEAN.IO LOOKALIKE ─────────────────────────────────────────────────────────
+def call_ocean_lookalike(domain: str, size: int) -> list[dict]:
+    """Ocean.io V3 company lookalike search. Returns the raw companies list
+    (each item: {"company": {...}, "relevance": ...}), ranked closest-first."""
+    if not OCEAN_API_KEY:
+        raise RuntimeError("OCEAN_API_KEY not set")
+    payload = {
+        "size": size,
+        "companiesFilters": {
+            "lookalikeDomains": [domain],
+            "companySizes": OCEAN_COMPANY_SIZES,
+            "primaryLocations": {"includeCountries": OCEAN_COUNTRIES},
+        },
+        "fields": OCEAN_FIELDS,
+    }
+    resp = requests.post(
+        f"{OCEAN_BASE_URL}/v3/search/companies",
+        json=payload,
+        headers={"x-api-token": OCEAN_API_KEY, "Content-Type": "application/json"},
+        timeout=120,
+    )
+    resp.raise_for_status()
+    return resp.json().get("companies", []) or []
+
+
+def _map_company(item: dict) -> dict:
+    """Flatten one Ocean result into the fields the PDF row needs."""
+    c = item.get("company", {}) or {}
+    locs = c.get("locations", []) or []
+    p = next((l for l in locs if l.get("primary")), locs[0] if locs else {})
+    city = p.get("locality", ""); region = p.get("region", ""); country = p.get("country", "")
+    location = ", ".join([x for x in [city, region or country] if x]) or (country or "-")
+    ind_list = c.get("industries") or c.get("industryCategories") or [c.get("linkedinIndustry", "")]
+    industry = next((x for x in ind_list if x), "-")
+    emp = c.get("employeeCountOcean")
+    size = f"{emp} staff" if emp else (c.get("companySize", "") or "-")
+    return {
+        "name": (c.get("name", "") or c.get("domain", "")).strip(),
+        "domain": c.get("domain", ""),
+        "industry": industry,
+        "size": size,
+        "location": location,
+    }
+
+
+def tier_companies(companies: list[dict]) -> tuple[list[dict], int]:
+    """Map, dedupe by domain, and split into 3 relevance-ranked tiers
+    (~30% / ~35% / rest). Adds a global row number. Returns (tiers, total)."""
+    mapped = [_map_company(x) for x in companies
+              if (x.get("company") or {}).get("name") or (x.get("company") or {}).get("domain")]
+    seen, uniq = set(), []
+    for m in mapped:
+        k = (m["domain"] or m["name"]).lower()
+        if not k or k in seen:
+            continue
+        seen.add(k); uniq.append(m)
+    n = len(uniq)
+    c1 = max(1, round(n * 0.30)) if n else 0
+    c2 = max(1, round(n * 0.35)) if n else 0
+    t1, t2, t3 = uniq[:c1], uniq[c1:c1 + c2], uniq[c1 + c2:]
+    tiers = [
+        {"n": 1, "name": "Tier 1 · Closest match", "sub": "Start here - nearest fit on size, industry and market", "companies": t1},
+        {"n": 2, "name": "Tier 2 · Strong match",  "sub": "Very close, worth a first-touch",                     "companies": t2},
+        {"n": 3, "name": "Tier 3 · Worth a look",  "sub": "Adjacent fit, good for a second wave",                "companies": t3},
+    ]
+    i = 1
+    for t in tiers:
+        for co in t["companies"]:
+            co["n"] = i; i += 1
+    return tiers, n
 
 # ── GOOGLE DRIVE ──────────────────────────────────────────────────────────────
 def upload_to_drive(file_path: str, company_name: str) -> str | None:
@@ -323,6 +418,29 @@ def build_reply_text(first_name: str, company_name: str, drive_url: str) -> str:
         f"Hey {first_name}, great to hear back from you.\n\n"
         f"Here's the map I put together for {company_name}: {drive_url}\n\n"
         f"Would love to walk you through it and see where we could get your GTM moving.\n\n"
+        f"{time_pitch}\n\n"
+        f"If neither works, grab any time here: {CALENDLY_LINK}\n\n"
+        f"Look forward to speaking soon.\nBest, Leo"
+    )
+
+
+def build_reply_lookalike_text(first_name: str, seed_customer_name: str,
+                               total_count: int, drive_url: str) -> str:
+    slots  = get_calendly_slots()
+    is_err = any(s.startswith("CALENDLY_ERROR") for s in slots)
+    if not is_err and len(slots) >= 2:
+        time_pitch = f"Does {slots[0]} or {slots[1]} work to have a chat?"
+    elif not is_err and len(slots) == 1:
+        time_pitch = f"Does {slots[0]} work to have a chat?"
+    else:
+        time_pitch = f"Would love to find a time to chat. [DEBUG: {' | '.join(slots)}]"
+
+    return (
+        f"Hey {first_name}, great to hear back from you.\n\n"
+        f"Here's the list I put together - {total_count} companies that look just like "
+        f"{seed_customer_name}, ranked closest-match first: {drive_url}\n\n"
+        f"Tier 1 is where I'd start. Happy to walk you through how I'd turn it into "
+        f"booked demos.\n\n"
         f"{time_pitch}\n\n"
         f"If neither works, grab any time here: {CALENDLY_LINK}\n\n"
         f"Look forward to speaking soon.\nBest, Leo"
@@ -573,6 +691,93 @@ def generate(payload: PayloadIn):
         pdf_url = f"{PUBLIC_URL}/files/{filename}" if PUBLIC_URL else f"/files/{filename}"
         return JSONResponse({
             "drive_url": drive_url, "pdf_url": pdf_url, "filename": filename,
+            "autosend_status": autosend_status, "close_pdf_status": close_pdf_status,
+        })
+
+    except Exception as e:
+        return JSONResponse(status_code=500, content={
+            "error": str(e), "error_type": type(e).__name__, "traceback": traceback.format_exc()
+        })
+
+
+@app.post("/generate-lookalike")
+def generate_lookalike(payload: LookalikePayloadIn):
+    """Lookalike lead magnet: given the prospect's own best customer (seed_domain),
+    pull Ocean.io lookalikes, tier them, render a branded PDF, and deliver it the
+    same way as /generate (Drive → threaded Instantly reply → Close → Slack).
+    Clay routes here only when a valid seed customer was found; otherwise it calls
+    /generate for the standard 3-plays PDF."""
+    try:
+        raw = call_ocean_lookalike(payload.seed_domain, payload.size)
+        tiers, total = tier_companies(raw)
+        if total == 0:
+            return JSONResponse(status_code=422, content={
+                "error": "no_lookalikes", "seed_domain": payload.seed_domain,
+                "detail": "Ocean.io returned no companies for this seed - route to the 3-plays /generate instead.",
+            })
+
+        company_name = clean_company_name(payload.company_name)
+        seed = payload.seed_customer_name.strip() or payload.seed_domain
+        ctx = {
+            "company_name": company_name,
+            "company_logo_url": payload.company_logo_url,
+            "seed_customer_name": seed,
+            "total_count": total,
+            "intro_text": (
+                f"You've already won {seed}. These are the companies that look most like "
+                f"them - same shape, same size, same market. A ready-made target list for "
+                f"{company_name}, ranked closest-match first."
+            ),
+            "proof_stats": PROOF_STATS,
+            "tiers": tiers,
+            "calendly_link": CALENDLY_LINK,
+        }
+
+        html_str = template_lookalike.render(**ctx)
+        filename = f"{uuid.uuid4()}.pdf"
+        out_path = os.path.join(OUTPUT_DIR, filename)
+        HTML(string=html_str, base_url=BASE_DIR).write_pdf(out_path)
+
+        drive_url = upload_to_drive(out_path, f"{company_name} lookalikes")
+
+        autosend_status = "disabled"
+        reply_text = ""
+        if drive_url:
+            reply_text = build_reply_lookalike_text(payload.first_name, seed, total, drive_url)
+
+            if not INSTANTLY_API_KEY:
+                autosend_status = "disabled"
+            elif not payload.email:
+                autosend_status = "no_email"
+            elif not is_safe_to_autosend(reply_text):
+                autosend_status = "unsafe"
+            else:
+                source_email = find_latest_inbound_email(payload.email, payload.campaign_id)
+                if not source_email:
+                    autosend_status = "no_thread_found"
+                elif AUTOSEND_DRY_RUN:
+                    print(f"[DRY RUN] Would reply to {payload.email} (thread {source_email.get('id')}, eaccount {source_email.get('eaccount')})")
+                    autosend_status = "dry_run"
+                else:
+                    autosend_status = "sent" if send_reply(source_email, reply_text) else "send_failed"
+                    if autosend_status == "sent":
+                        tagged = tag_lead_magnet_followup(payload.email, payload.campaign_id)
+                        autosend_status = "sent" if tagged else "sent_tag_failed"
+
+            post_to_slack(payload.first_name, f"{company_name} (lookalikes of {seed})", drive_url, reply_text, autosend_status)
+
+        close_pdf_status = "disabled"
+        if drive_url and payload.email:
+            try:
+                close_pdf_status = push_pdf_to_close(payload.email, drive_url)
+            except Exception as e:
+                print(f"Close PDF push unexpected error: {e}")
+                close_pdf_status = "write_failed"
+
+        pdf_url = f"{PUBLIC_URL}/files/{filename}" if PUBLIC_URL else f"/files/{filename}"
+        return JSONResponse({
+            "drive_url": drive_url, "pdf_url": pdf_url, "filename": filename,
+            "total_companies": total, "seed_domain": payload.seed_domain,
             "autosend_status": autosend_status, "close_pdf_status": close_pdf_status,
         })
 
