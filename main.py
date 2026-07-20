@@ -139,14 +139,13 @@ template = env.get_template("template.html")
 template_lookalike = env.get_template("template_lookalike.html")
 
 # ── ENV VARS ──────────────────────────────────────────────────────────────────
-CALENDLY_LINK        = os.environ.get("CALENDLY_LINK",        "https://calendly.com/thegtmagency/")
+CALENDLY_LINK        = os.environ.get("CALENDLY_LINK",        "https://calendly.com/thegtmagency/30min")
 CALENDLY_API_TOKEN   = os.environ.get("CALENDLY_API_TOKEN",   "")
 GOOGLE_CREDENTIALS_JSON = os.environ.get("GOOGLE_CREDENTIALS_JSON", "")
 DRIVE_FOLDER_ID      = os.environ.get("DRIVE_FOLDER_ID",      "")
 SLACK_WEBHOOK_URL    = os.environ.get("SLACK_WEBHOOK_URL",    "")
 PUBLIC_URL           = os.environ.get("PUBLIC_URL",           "").rstrip("/")
 LEO_LINKEDIN_URL     = os.environ.get("LEO_LINKEDIN_URL",     "https://www.linkedin.com/in/leo-bosuener1/")
-SABA_LINKEDIN_URL    = os.environ.get("SABA_LINKEDIN_URL",    "https://www.linkedin.com/in/saba-bosuener/")
 INSTANTLY_API_KEY    = os.environ.get("INSTANTLY_API_KEY",    "").strip()
 INSTANTLY_BASE_URL   = "https://api.instantly.ai/api/v2"
 # Ocean.io lookalike search — powers the lookalike lead magnet (/generate-lookalike).
@@ -643,7 +642,6 @@ def generate(payload: PayloadIn):
         ctx["proof_stats"]      = PROOF_STATS
         ctx["date"]             = datetime.now().strftime("%B %Y")
         ctx["leo_linkedin_url"] = LEO_LINKEDIN_URL
-        ctx["saba_linkedin_url"]= SABA_LINKEDIN_URL
 
         html_str  = template.render(**ctx)
         filename  = f"{uuid.uuid4()}.pdf"
