@@ -532,7 +532,10 @@ def tag_lead_magnet_followup(lead_email: str, campaign_id: str = "") -> bool:
             json=payload,
             timeout=15,
         )
-        if r.status_code not in (200, 201):
+        # This endpoint is async and returns 202 Accepted ("background job
+        # submitted"), not 200/201 - treat any 2xx as success. Rejecting 202
+        # made a genuinely-applied tag report as FAILED in Slack.
+        if not (200 <= r.status_code < 300):
             print(f"Instantly tag-followup failed ({r.status_code}): {r.text[:300]}")
             return False
         return True
