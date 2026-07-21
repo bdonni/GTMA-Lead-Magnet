@@ -239,21 +239,29 @@ class LookalikePayloadIn(BaseModel):
     company_logo_url:   str = ""
     email:              str = ""
     campaign_id:        str = ""
+    country:            str = ""       # seed customer's 2-letter country (from Clay); locks lookalikes to that market
     size:               int = 60       # how many lookalikes to request from Ocean
 
 
 # ── OCEAN.IO LOOKALIKE ─────────────────────────────────────────────────────────
-def call_ocean_lookalike(domain: str, size: int) -> list[dict]:
+def call_ocean_lookalike(domain: str, size: int, countries: list[str] | None = None) -> list[dict]:
     """Ocean.io V3 company lookalike search. Returns the raw companies list
-    (each item: {"company": {...}, "relevance": ...}), ranked closest-first."""
+    (each item: {"company": {...}, "relevance": ...}), ranked closest-first.
+
+    `countries` restricts results by primary location. Pass the seed customer's
+    own country (from Clay) so the list is a realistic target set in the market
+    the prospect actually sells into - Ocean's similarity ignores geography, so
+    without this a US company's lookalikes come back spread across the UK, AU,
+    etc. Falls back to the default multi-country list when not provided."""
     if not OCEAN_API_KEY:
         raise RuntimeError("OCEAN_API_KEY not set")
+    include = [c.strip().upper() for c in (countries or []) if c and c.strip()] or OCEAN_COUNTRIES
     payload = {
         "size": size,
         "companiesFilters": {
             "lookalikeDomains": [domain],
             "companySizes": OCEAN_COMPANY_SIZES,
-            "primaryLocations": {"includeCountries": OCEAN_COUNTRIES},
+            "primaryLocations": {"includeCountries": include},
         },
         "fields": OCEAN_FIELDS,
     }
@@ -716,7 +724,8 @@ def generate_lookalike(payload: LookalikePayloadIn):
     Clay routes here only when a valid seed customer was found; otherwise it calls
     /generate for the standard 3-plays PDF."""
     try:
-        raw = call_ocean_lookalike(payload.seed_domain, payload.size)
+        countries = [payload.country] if payload.country.strip() else None
+        raw = call_ocean_lookalike(payload.seed_domain, payload.size, countries)
         tiers, total = tier_companies(raw)
         if total == 0:
             return JSONResponse(status_code=422, content={
