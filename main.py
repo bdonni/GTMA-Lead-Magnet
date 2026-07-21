@@ -272,8 +272,15 @@ def _map_company(item: dict) -> dict:
     c = item.get("company", {}) or {}
     locs = c.get("locations", []) or []
     p = next((l for l in locs if l.get("primary")), locs[0] if locs else {})
-    city = p.get("locality", ""); region = p.get("region", ""); country = p.get("country", "")
-    location = ", ".join([x for x in [city, region or country] if x]) or (country or "-")
+    city = (p.get("locality", "") or "").strip()
+    # Ocean's region can be pipe-joined ("England|Southern|Oxford (OX)") - take
+    # the first segment. Country comes as a lowercase code - uppercase it.
+    region = (p.get("region", "") or "").split("|")[0].strip()
+    country = (p.get("country", "") or "").strip()
+    if 0 < len(country) <= 3:
+        country = country.upper()
+    tail = region or country
+    location = ", ".join([x for x in [city, tail] if x]) or country or "-"
     ind_list = c.get("industries") or c.get("industryCategories") or [c.get("linkedinIndustry", "")]
     industry = next((x for x in ind_list if x), "-")
     emp = c.get("employeeCountOcean")
