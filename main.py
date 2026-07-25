@@ -802,3 +802,124 @@ def generate_lookalike(payload: LookalikePayloadIn):
         return JSONResponse(status_code=500, content={
             "error": str(e), "error_type": type(e).__name__, "traceback": traceback.format_exc()
         })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MICROSITE SWAP: on a positive reply, generate the GTM Playbook Microsite and
+# post the link to Slack for an SDR to film a Loom over. NO auto-reply is sent
+# to the prospect (the SDR sends the Loom + link manually).
+# ─────────────────────────────────────────────────────────────────────────────
+import threading as _threading
+
+MICROSITE_BASE = os.environ.get(
+    "MICROSITE_BASE",
+    "https://gtm-playbook-microsite-production-f986.up.railway.app",
+).rstrip("/")
+
+
+class MicrositeReq(BaseModel):
+    first_name: str = ""
+    company_name: str = ""
+    domain: str = ""
+    website: str = ""
+    email: str = ""
+    prepared_for: str = ""
+
+
+def _ms_domain(req) -> str:
+    d = (req.domain or req.website or "").strip()
+    if not d and req.email and "@" in req.email:
+        d = req.email.split("@")[-1]
+    d = d.replace("https://", "").replace("http://", "").rstrip("/").split("/")[0]
+    return d.lower()
+
+
+def _ms_generate_url(domain: str, company_name: str, prepared_for: str):
+    """Kick off async generation on the microsite service and poll for the URL."""
+    job = None
+    try:
+        r = requests.post(f"{MICROSITE_BASE}/generate",
+                          json={"domain": domain, "company_name": company_name,
+                                "prepared_for": prepared_for}, timeout=30)
+        job = r.json().get("job_id")
+    except Exception as e:
+        print(f"microsite /generate kickoff failed: {e}")
+    if not job:
+        try:
+            r2 = requests.post(f"{MICROSITE_BASE}/generate/sync",
+                              json={"domain": domain, "company_name": company_name,
+                                    "prepared_for": prepared_for}, timeout=200)
+            return r2.json().get("url")
+        except Exception as e:
+            print(f"microsite /generate/sync failed: {e}")
+            return None
+    for _ in range(48):  # up to ~4 min
+        time.sleep(5)
+        try:
+            s = requests.get(f"{MICROSITE_BASE}/generate/{job}", timeout=15).json()
+        except Exception:
+            continue
+        if s.get("status") == "completed":
+            return s.get("url")
+        if s.get("status") == "failed":
+            print(f"microsite generation failed: {s.get('error')}")
+            return None
+    return None
+
+
+def _ms_reply_text(first_name: str, company_name: str, url: str) -> str:
+    fn = first_name or "there"
+    return (f"Hey {fn}, great to hear back from you.\n\n"
+            f"I put together a GTM playbook for {company_name}, mapping your ICP and "
+            f"5 signal-based plays you could run: {url}\n\n"
+            f"Recorded a quick walkthrough over it too. Worth a look?")
+
+
+def _ms_post_slack(first_name: str, company_name: str, url: str, reply_text: str, ok: bool):
+    if not SLACK_WEBHOOK_URL:
+        return
+    if ok:
+        blocks = [
+            {"type": "section", "text": {"type": "mrkdwn",
+                "text": f":movie_camera: *New positive reply, ready for a Loom - {first_name} / {company_name}*\n"
+                        f"SDR: open the playbook below, film a Loom walking over it, then reply to the prospect with the Loom + link. Nothing was auto-sent."}},
+            {"type": "section", "text": {"type": "mrkdwn",
+                "text": f"*GTM Playbook microsite:* <{url}|Open playbook>"}},
+            {"type": "divider"},
+            {"type": "section", "text": {"type": "mrkdwn",
+                "text": f"*Suggested reply to send after your Loom:*\n```{reply_text}```"}},
+        ]
+    else:
+        blocks = [
+            {"type": "section", "text": {"type": "mrkdwn",
+                "text": f":warning: *Positive reply, microsite generation FAILED - {first_name} / {company_name}*\n"
+                        f"Generate manually or check the microsite service. Nothing was auto-sent."}},
+        ]
+    try:
+        requests.post(SLACK_WEBHOOK_URL, json={"blocks": blocks}, timeout=10)
+    except Exception as e:
+        print(f"microsite Slack post failed: {e}")
+
+
+def _ms_run(req):
+    domain = _ms_domain(req)
+    company = clean_company_name(req.company_name) if req.company_name else (
+        domain.split(".")[0].title() if domain else "")
+    prepared_for = (req.prepared_for or req.first_name or "").strip()
+    url = _ms_generate_url(domain, company, prepared_for) if domain else None
+    reply = _ms_reply_text(req.first_name, company, url or "")
+    _ms_post_slack(req.first_name, company, url or "", reply, bool(url))
+    if url and req.email:
+        try:
+            push_pdf_to_close(req.email, url)
+        except Exception as e:
+            print(f"microsite Close write failed: {e}")
+
+
+@app.post("/generate-microsite")
+def generate_microsite_endpoint(req: MicrositeReq):
+    """Positive reply -> generate the GTM Playbook Microsite -> Slack for an SDR.
+    Does NOT auto-send any reply to the prospect (SDR films a Loom + sends manually)."""
+    _threading.Thread(target=_ms_run, args=(req,), daemon=True).start()
+    return JSONResponse({"status": "processing",
+                         "message": "Generating microsite; link will post to Slack for the SDR. No auto-reply sent."})
