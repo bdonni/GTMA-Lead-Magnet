@@ -890,8 +890,9 @@ def _ms_reply_text(first_name: str, company_name: str, url: str, time_pitch: str
             f"which is yours to keep.\n\n"
             f"Video: [PASTE LOOM LINK]\n"
             f"Playbook: {url}\n\n"
-            f"I'd love to walk you through it live and talk about how it'd work for you "
-            f"in practice.\n\n"
+            f"If this looks interesting, I'd be happy to talk to it live and show you how "
+            f"we built done-for-you go-to-market engines that generate ROI within 45 days, "
+            f"guaranteed.\n\n"
             f"{time_pitch}\n\n"
             f"If neither suits, grab whatever's easiest here: {CALENDLY_LINK}\n\n"
             f"Looking forward to chatting soon.")
