@@ -867,28 +867,63 @@ def _ms_generate_url(domain: str, company_name: str, prepared_for: str):
     return None
 
 
-def _ms_reply_text(first_name: str, company_name: str, url: str) -> str:
+def _ms_time_pitch():
+    """Two live Calendly slots if the API cooperates, else a manual fill-in.
+    Returns (pitch_line, auto_filled)."""
+    try:
+        slots = get_calendly_slots()
+    except Exception as e:
+        print(f"microsite calendly slots failed: {e}")
+        slots = ["CALENDLY_ERROR: exception"]
+    is_err = any(s.startswith("CALENDLY_ERROR") for s in slots)
+    if not is_err and len(slots) >= 2:
+        return f"Does {slots[0]} or {slots[1]} work for a quick chat?", True
+    if not is_err and len(slots) == 1:
+        return f"Does {slots[0]} work for a quick chat?", True
+    return "Does [TIME 1] or [TIME 2] work for a quick chat?", False
+
+
+def _ms_reply_text(first_name: str, company_name: str, url: str, time_pitch: str) -> str:
     fn = first_name or "there"
-    return (f"Hey {fn}, great to hear back from you.\n\n"
-            f"I put together a GTM playbook for {company_name}, mapping your ICP and "
-            f"5 signal-based plays you could run: {url}\n\n"
-            f"Recorded a quick walkthrough over it too. Worth a look?")
+    return (f"Hey {fn}, great to hear back.\n\n"
+            f"Here's the video I put together for {company_name}, plus the full playbook, "
+            f"which is yours to keep.\n\n"
+            f"Video: [PASTE LOOM LINK]\n"
+            f"Playbook: {url}\n\n"
+            f"I'd love to walk you through it live and talk about how it'd work for you "
+            f"in practice.\n\n"
+            f"{time_pitch}\n\n"
+            f"If neither suits, grab whatever's easiest here: {CALENDLY_LINK}\n\n"
+            f"Looking forward to chatting soon.")
 
 
-def _ms_post_slack(first_name: str, company_name: str, url: str, reply_text: str, ok: bool):
+def _ms_post_slack(first_name: str, company_name: str, url: str, reply_text: str, ok: bool,
+                   slots_ok: bool = True):
     if not SLACK_WEBHOOK_URL:
         return
     if ok:
+        steps = ("*SDR steps:*\n"
+                 "1. Open the playbook below and film a Loom walking over it\n"
+                 "2. Copy the draft reply\n"
+                 "3. Swap `[PASTE LOOM LINK]` for your Loom URL\n")
+        steps += ("4. Send. Your signature appends automatically\n"
+                  if slots_ok else
+                  "4. Fill in `[TIME 1]` and `[TIME 2]` from the calendar\n"
+                  "5. Send. Your signature appends automatically\n")
         blocks = [
             {"type": "section", "text": {"type": "mrkdwn",
                 "text": f":movie_camera: *New positive reply, ready for a Loom - {first_name} / {company_name}*\n"
-                        f"SDR: open the playbook below, film a Loom walking over it, then reply to the prospect with the Loom + link. Nothing was auto-sent."}},
+                        f"Nothing was auto-sent to the prospect."}},
             {"type": "section", "text": {"type": "mrkdwn",
                 "text": f"*GTM Playbook microsite:* <{url}|Open playbook>"}},
+            {"type": "section", "text": {"type": "mrkdwn", "text": steps}},
             {"type": "divider"},
             {"type": "section", "text": {"type": "mrkdwn",
-                "text": f"*Suggested reply to send after your Loom:*\n```{reply_text}```"}},
+                "text": f"*Draft reply, ready to send:*\n```{reply_text}```"}},
         ]
+        if not slots_ok:
+            blocks.append({"type": "context", "elements": [{"type": "mrkdwn",
+                "text": ":warning: Calendly slots could not be pulled, so fill the two times in by hand."}]})
     else:
         blocks = [
             {"type": "section", "text": {"type": "mrkdwn",
@@ -907,8 +942,9 @@ def _ms_run(req):
         domain.split(".")[0].title() if domain else "")
     prepared_for = (req.prepared_for or req.first_name or "").strip()
     url = _ms_generate_url(domain, company, prepared_for) if domain else None
-    reply = _ms_reply_text(req.first_name, company, url or "")
-    _ms_post_slack(req.first_name, company, url or "", reply, bool(url))
+    time_pitch, slots_ok = _ms_time_pitch()
+    reply = _ms_reply_text(req.first_name, company, url or "", time_pitch)
+    _ms_post_slack(req.first_name, company, url or "", reply, bool(url), slots_ok)
     if url and req.email:
         try:
             push_pdf_to_close(req.email, url)
