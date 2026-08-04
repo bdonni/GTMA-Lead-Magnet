@@ -2,7 +2,7 @@ import os, uuid, json, traceback, requests, re, time
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -960,3 +960,75 @@ def generate_microsite_endpoint(req: MicrositeReq):
     _threading.Thread(target=_ms_run, args=(req,), daemon=True).start()
     return JSONResponse({"status": "processing",
                          "message": "Generating microsite; link will post to Slack for the SDR. No auto-reply sent."})
+
+
+# --- Smartlead webhook ------------------------------------------------------
+# Smartlead posts its own payload shape, which does not match MicrositeReq, so
+# pointing a webhook straight at /generate-microsite yields an empty microsite
+# and no error. This maps the fields, then reuses the same _ms_run.
+
+# Second gate on top of Smartlead's own category filter, so a mis-scoped
+# webhook cannot fire the magnet at someone who said no.
+_SL_POSITIVE = {c.strip().lower() for c in os.environ.get(
+    "SMARTLEAD_POSITIVE_CATEGORIES",
+    "interested,meeting request,information request,positive response but no reply"
+).split(",") if c.strip()}
+
+
+def _sl_pick(payload: dict, *names):
+    """First non-empty value among names, checked at the top level then in any
+    nested lead / custom-field dict. Smartlead moves these around by event type."""
+    pools = [payload]
+    for key in ("lead", "lead_data", "leadData", "custom_fields", "customFields", "metadata"):
+        val = payload.get(key)
+        if isinstance(val, dict):
+            pools.append(val)
+            inner = val.get("custom_fields") or val.get("customFields")
+            if isinstance(inner, dict):
+                pools.append(inner)
+    for name in names:
+        for pool in pools:
+            v = pool.get(name)
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+    return ""
+
+
+@app.post("/smartlead-webhook")
+async def smartlead_webhook(request: Request):
+    payload = await request.json()
+
+    # log the raw shape - field names vary by event type, and this is the only
+    # way to confirm the mapping against a real fire
+    print(f"smartlead-webhook raw: {json.dumps(payload)[:1500]}", flush=True)
+
+    secret = os.environ.get("SMARTLEAD_WEBHOOK_SECRET", "")
+    if secret and payload.get("secret_key") != secret:
+        return JSONResponse({"status": "rejected", "reason": "bad secret"}, status_code=401)
+
+    category = _sl_pick(payload, "lead_category", "leadCategory", "sl_lead_category",
+                        "category", "new_category").lower()
+    if category and category not in _SL_POSITIVE:
+        print(f"smartlead-webhook skipped, category={category!r}", flush=True)
+        return JSONResponse({"status": "skipped", "reason": f"category {category}"})
+
+    email = _sl_pick(payload, "to_email", "lead_email", "sl_lead_email", "email", "toEmail")
+    first = _sl_pick(payload, "firstName", "first_name", "to_name", "lead_first_name", "toName")
+    company = _sl_pick(payload, "companyName", "company_name", "company")
+    website = _sl_pick(payload, "website", "company_website", "companyWebsite", "domain")
+
+    # to_name arrives as a full name on some events; the greeting only wants
+    # the first word
+    if first and " " in first:
+        first = first.split()[0]
+
+    if not (email or website):
+        print("smartlead-webhook: no email or website, cannot resolve a domain", flush=True)
+        return JSONResponse({"status": "skipped", "reason": "no email or website"})
+
+    req = MicrositeReq(first_name=first, company_name=company, website=website,
+                       email=email, prepared_for=first)
+    print(f"smartlead-webhook -> first={first!r} company={company!r} "
+          f"website={website!r} email={email!r}", flush=True)
+    _threading.Thread(target=_ms_run, args=(req,), daemon=True).start()
+    return JSONResponse({"status": "processing", "email": email})
