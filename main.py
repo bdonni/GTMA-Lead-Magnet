@@ -1032,3 +1032,108 @@ async def smartlead_webhook(request: Request):
           f"website={website!r} email={email!r}", flush=True)
     _threading.Thread(target=_ms_run, args=(req,), daemon=True).start()
     return JSONResponse({"status": "processing", "email": email})
+
+# --- Smartlead reply notifications -------------------------------------------
+# Replaces the Instantly -> Clay -> Slack table. Every categorised reply posts
+# to its own channel with the phone number attached, so Leo can pick up the
+# phone without going and looking the lead up.
+
+REPLIES_SLACK_WEBHOOK = os.environ.get("REPLIES_SLACK_WEBHOOK_URL", "")
+
+# Which categories post. Kept wide by default: seeing a "not interested" land
+# is how you notice the AI is mis-categorising, and the old flow proved that
+# happens - it labelled "No thank you" as a positive reply.
+_SL_NOTIFY = {c.strip().lower() for c in os.environ.get(
+    "SMARTLEAD_NOTIFY_CATEGORIES",
+    "interested,meeting request,information request,positive response but no reply"
+).split(",") if c.strip()}
+
+
+def _sl_reply_text(payload: dict) -> str:
+    for k in ("reply_body", "reply_message", "email_body", "body", "message",
+              "reply_text", "text"):
+        v = payload.get(k)
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+        if isinstance(v, dict):
+            for kk in ("text", "html", "body"):
+                vv = v.get(kk)
+                if isinstance(vv, str) and vv.strip():
+                    return vv.strip()
+    return ""
+
+
+def _sl_clean_reply(text: str, limit: int = 600) -> str:
+    """Strip quoted history so the card shows what they actually wrote."""
+    if not text:
+        return "(no reply body in the webhook)"
+    text = re.sub(r"<[^>]+>", " ", text)
+    # cut at the first quoted-reply marker
+    for marker in (r"\nOn .{0,80} wrote:", r"\n>", r"\n-{2,}\s*Original Message",
+                   r"\nFrom:\s"):
+        m = re.search(marker, text)
+        if m:
+            text = text[:m.start()]
+            break
+    text = re.sub(r"\s+", " ", text).strip()
+    return (text[:limit] + "...") if len(text) > limit else text
+
+
+@app.post("/smartlead-reply")
+async def smartlead_reply(request: Request):
+    """Post a Smartlead reply into the replies channel, phone number included."""
+    payload = await request.json()
+    print(f"smartlead-reply raw: {json.dumps(payload)[:1500]}", flush=True)
+
+    secret = os.environ.get("SMARTLEAD_WEBHOOK_SECRET", "")
+    if secret and payload.get("secret_key") != secret:
+        return JSONResponse({"status": "rejected"}, status_code=401)
+
+    category = _sl_pick(payload, "lead_category", "leadCategory", "sl_lead_category",
+                        "category", "new_category")
+    if category and category.lower() not in _SL_NOTIFY:
+        return JSONResponse({"status": "skipped", "reason": f"category {category}"})
+
+    email = _sl_pick(payload, "to_email", "lead_email", "sl_lead_email", "email")
+    first = _sl_pick(payload, "firstName", "first_name", "lead_first_name", "to_name")
+    last = _sl_pick(payload, "lastName", "last_name", "lead_last_name")
+    company = _sl_pick(payload, "companyName", "company_name", "company")
+    website = _sl_pick(payload, "website", "company_website", "companyWebsite")
+    phone = _sl_pick(payload, "phone_number", "phone", "phoneNumber", "mobile")
+    campaign = _sl_pick(payload, "campaign_name", "campaignName")
+
+    if first and not last and " " in first:
+        first, last = first.split(" ", 1)
+    name = " ".join(x for x in (first, last) if x) or (email.split("@")[0] if email else "unknown")
+    if not website and email and "@" in email:
+        website = "https://" + email.split("@")[-1]
+
+    reply = _sl_clean_reply(_sl_reply_text(payload))
+    when = _sl_pick(payload, "event_timestamp", "timestamp", "created_at", "reply_time")
+
+    lines = [f"*Name:* {name}"]
+    if email:    lines.append(f"*Email:* {email}")
+    if company:  lines.append(f"*Company:* {company}")
+    if website:  lines.append(f"*Website:* {website}")
+    # the whole point of the card - no phone means nobody can act on it fast
+    lines.append(f"*Phone:* {phone}" if phone else "*Phone:* _not on the lead record_")
+    if campaign: lines.append(f"*Campaign:* {campaign}")
+    if when:     lines.append(f"*Received:* {when}")
+    if category: lines.append(f"*Smartlead category:* {category}")
+
+    blocks = [
+        {"type": "section", "text": {"type": "mrkdwn",
+            "text": ":star2: *New Reply Received* :star2:\n" + "\n".join(lines)}},
+        {"type": "section", "text": {"type": "mrkdwn", "text": f"*Reply:*\n>{reply}"}},
+    ]
+
+    hook = REPLIES_SLACK_WEBHOOK or SLACK_WEBHOOK_URL
+    if not hook:
+        print("smartlead-reply: no Slack webhook configured", flush=True)
+        return JSONResponse({"status": "no_webhook"})
+    try:
+        requests.post(hook, json={"blocks": blocks}, timeout=10)
+    except Exception as e:
+        print(f"smartlead-reply Slack post failed: {e}", flush=True)
+        return JSONResponse({"status": "slack_failed"}, status_code=502)
+    return JSONResponse({"status": "posted", "email": email})
