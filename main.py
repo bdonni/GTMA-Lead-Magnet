@@ -367,9 +367,17 @@ def upload_to_drive(file_path: str, company_name: str) -> str | None:
         return None
 
 # ── CALENDLY ──────────────────────────────────────────────────────────────────
-def get_calendly_slots() -> list[str]:
+# Never pitch a time before this hour, Eastern. Leo's Calendly availability is
+# set in his own timezone, and he is currently 6+ hours ahead of ET, so his
+# ordinary morning converts to the middle of the night for a US prospect.
+# Without this floor the reply cheerfully suggests a 4am call.
+CALENDLY_MIN_HOUR_ET = int(os.environ.get("CALENDLY_MIN_HOUR_ET", "9"))
+
+
+def get_calendly_slots(min_hour: int | None = None, want: int = 2) -> list[str]:
     if not CALENDLY_API_TOKEN:
         return ["CALENDLY_ERROR: no token set"]
+    min_hour = CALENDLY_MIN_HOUR_ET if min_hour is None else min_hour
     headers = {"Authorization": f"Bearer {CALENDLY_API_TOKEN}", "Content-Type": "application/json"}
     try:
         me = requests.get("https://api.calendly.com/users/me", headers=headers, timeout=10)
@@ -387,7 +395,9 @@ def get_calendly_slots() -> list[str]:
 
         now = datetime.now(timezone.utc)
         start = now + timedelta(minutes=15)   # must be in the future
-        end   = now + timedelta(hours=72)
+        # 7 days is Calendly's maximum range per request. The old 72h window
+        # plus the 9am floor could easily return nothing at all.
+        end   = now + timedelta(days=7)
         avail = requests.get(
             "https://api.calendly.com/event_type_available_times",
             headers=headers,
@@ -407,9 +417,15 @@ def get_calendly_slots() -> list[str]:
 
         eastern = ZoneInfo("America/New_York")
         out = []
-        for slot in slots[:2]:
+        for slot in slots:
             dt = datetime.fromisoformat(slot["start_time"].replace("Z", "+00:00")).astimezone(eastern)
+            if dt.hour < min_hour:
+                continue
             out.append(f"{dt.strftime('%A')} at {dt.strftime('%-I:%M%p').lower()} {dt.strftime('%Z')}")
+            if len(out) >= want:
+                break
+        if not out:
+            return [f"CALENDLY_ERROR: no slots at or after {min_hour}:00 ET in the next 7 days"]
         return out
     except Exception as e:
         return [f"CALENDLY_ERROR: exception — {str(e)[:150]}"]
@@ -941,19 +957,27 @@ def _ms_generate_url(domain: str, company_name: str, prepared_for: str):
 
 
 def _ms_time_pitch():
-    """Two live Calendly slots if the API cooperates, else a manual fill-in.
-    Returns (pitch_line, auto_filled)."""
+    """Two live Calendly slots if the API cooperates, else a generic ask.
+
+    Deliberately never returns a [TIME n] placeholder. This message sends
+    itself, so a placeholder would trip is_safe_to_autosend and silently stop
+    the whole flow. Falling back to a line that needs no times keeps the
+    playbook going out on time; the Calendly link below it still converts.
+    Returns (pitch_line, slots_ok).
+    """
     try:
         slots = get_calendly_slots()
     except Exception as e:
         print(f"microsite calendly slots failed: {e}")
         slots = ["CALENDLY_ERROR: exception"]
     is_err = any(s.startswith("CALENDLY_ERROR") for s in slots)
+    if is_err:
+        print(f"microsite calendly: {slots[0]}", flush=True)
     if not is_err and len(slots) >= 2:
         return f"Does {slots[0]} or {slots[1]} work for a quick chat?", True
     if not is_err and len(slots) == 1:
         return f"Does {slots[0]} work for a quick chat?", True
-    return "Does [TIME 1] or [TIME 2] work for a quick chat?", False
+    return "Are you free for a quick chat in the next few days?", False
 
 
 def _ms_reply_text(first_name: str, company_name: str, url: str, time_pitch: str) -> str:
@@ -1077,6 +1101,7 @@ def _ms_run(req):
         domain.split(".")[0].title() if domain else "")
     prepared_for = (req.prepared_for or req.first_name or "").strip()
     url = _ms_generate_url(domain, company, prepared_for) if domain else None
+    print(f"microsite playbook for {domain} ({company}): {url}", flush=True)
     time_pitch, slots_ok = _ms_time_pitch()
     reply = _ms_reply_text(req.first_name, company, url or "", time_pitch)
     loom = _ms_sdr_loom_text(req.first_name)
