@@ -148,6 +148,13 @@ PUBLIC_URL           = os.environ.get("PUBLIC_URL",           "").rstrip("/")
 LEO_LINKEDIN_URL     = os.environ.get("LEO_LINKEDIN_URL",     "https://www.linkedin.com/in/leo-bosuener1/")
 INSTANTLY_API_KEY    = os.environ.get("INSTANTLY_API_KEY",    "").strip()
 INSTANTLY_BASE_URL   = "https://api.instantly.ai/api/v2"
+# Smartlead — the campaigns moved off Instantly, so the microsite auto-reply
+# threads through here. The webhook payload carries only name/email/company/
+# website, so campaign_id and email_stats_id have to be looked back up.
+SMARTLEAD_API_KEY    = os.environ.get("SMARTLEAD_API_KEY",    "").strip()
+SMARTLEAD_BASE_URL   = "https://server.smartlead.ai/api/v1"
+# Cloudflare 1010s urllib/python default agents on this host.
+SMARTLEAD_HEADERS    = {"User-Agent": "curl/8.4.0"}
 # Ocean.io lookalike search — powers the lookalike lead magnet (/generate-lookalike).
 # Reuses the same key/filters as the standalone lookalike agent.
 OCEAN_API_KEY        = os.environ.get("OCEAN_API_KEY",        "").strip()
@@ -462,10 +469,76 @@ def build_reply_lookalike_text(first_name: str, seed_customer_name: str,
 
 
 def is_safe_to_autosend(reply_text: str) -> bool:
-    """Refuse to auto-send if the reply carries a debug/error artifact that
-    should never reach a real prospect (e.g. a Calendly lookup failure)."""
-    red_flags = ["CALENDLY_ERROR", "[DEBUG"]
+    """Refuse to auto-send if the reply carries a debug/error artifact or an
+    unfilled placeholder that should never reach a real prospect."""
+    red_flags = ["CALENDLY_ERROR", "[DEBUG", "[PASTE LOOM LINK]",
+                 "[TIME 1]", "[TIME 2]"]
     return not any(flag in reply_text for flag in red_flags)
+
+
+# ── SMARTLEAD (find thread + reply in thread) ────────────────────────────────
+def sl_find_thread(lead_email: str) -> dict | None:
+    """Resolve an email address to the thread we can reply on.
+
+    The microsite webhook only carries the lead's email, so campaign_id and
+    email_stats_id are recovered here: lead lookup -> its campaign -> the
+    message history. READ-ONLY, no side effects. Returns None if the lead has
+    not actually replied, because there is then no thread to reply into.
+    """
+    if not (SMARTLEAD_API_KEY and lead_email):
+        return None
+
+    def get(path, **params):
+        r = requests.get(f"{SMARTLEAD_BASE_URL}/{path}",
+                         params={"api_key": SMARTLEAD_API_KEY, **params},
+                         timeout=30, headers=SMARTLEAD_HEADERS)
+        return r.json() if r.status_code == 200 else None
+
+    try:
+        lead = get("leads/", email=lead_email)
+        lead_id = (lead or {}).get("id")
+        if not lead_id:
+            print(f"smartlead: no lead for {lead_email}", flush=True)
+            return None
+        camps = get(f"leads/{lead_id}/campaigns") or []
+        if not camps:
+            print(f"smartlead: no campaign for {lead_email}", flush=True)
+            return None
+        # A lead can sit in more than one campaign. Take the one that actually
+        # holds a reply, so we never thread onto a campaign they never answered.
+        for c in camps:
+            cid = c.get("id")
+            hist = (get(f"campaigns/{cid}/leads/{lead_id}/message-history")
+                    or {}).get("history") or []
+            replies = [h for h in hist if (h.get("type") or "").upper() == "REPLY"]
+            if replies and replies[-1].get("stats_id"):
+                return {"campaign_id": cid, "lead_id": lead_id,
+                        "stats_id": replies[-1]["stats_id"],
+                        "campaign_name": c.get("name") or ""}
+        print(f"smartlead: no REPLY in any thread for {lead_email}", flush=True)
+        return None
+    except Exception as e:
+        print(f"smartlead thread lookup error: {e}", flush=True)
+        return None
+
+
+def sl_reply_in_thread(campaign_id, stats_id: str, body_html: str) -> bool:
+    """Send the reply on the existing thread, from the mailbox that got it."""
+    if not (SMARTLEAD_API_KEY and campaign_id and stats_id):
+        return False
+    try:
+        r = requests.post(
+            f"{SMARTLEAD_BASE_URL}/campaigns/{campaign_id}/reply-email-thread",
+            params={"api_key": SMARTLEAD_API_KEY},
+            json={"email_stats_id": stats_id, "email_body": body_html},
+            timeout=30, headers=SMARTLEAD_HEADERS)
+        if r.status_code >= 400:
+            print(f"smartlead reply failed ({r.status_code}): {r.text[:300]}", flush=True)
+            return False
+        return True
+    except Exception as e:
+        print(f"smartlead reply error: {e}", flush=True)
+        return False
 
 
 # ── INSTANTLY (find thread + send reply) ─────────────────────────────────────
@@ -884,47 +957,86 @@ def _ms_time_pitch():
 
 
 def _ms_reply_text(first_name: str, company_name: str, url: str, time_pitch: str) -> str:
+    """Message 1, sent automatically the moment the playbook is ready.
+
+    Carries no Loom placeholder, because waiting on a human to paste one is
+    exactly the weekend delay this replaces. It flags that a video is coming
+    so the SDR's message a few minutes later reads as the promised follow-up
+    rather than a second cold touch.
+    """
     fn = first_name or "there"
     return (f"Hey {fn}, great to hear back.\n\n"
-            f"Here's the video I put together for {company_name}, plus the full playbook, "
-            f"which is yours to keep.\n\n"
-            f"Video: [PASTE LOOM LINK]\n"
-            f"Playbook: {url}\n\n"
-            f"If this looks interesting, I'd be happy to talk through it live and show you how "
-            f"we build done-for-you go-to-market engines that generate ROI within 45 days, "
-            f"guaranteed.\n\n"
+            f"Here's the playbook I put together for {company_name}, yours to keep.\n\n"
+            f"{url}\n\n"
+            f"I'm recording a short video walking through it, so that'll land in "
+            f"a few minutes.\n\n"
+            f"If it's useful, I'd be happy to talk it through live and show you how "
+            f"we build the go-to-market engine behind it, with qualified demos booked "
+            f"inside 45 days or you don't pay.\n\n"
             f"{time_pitch}\n\n"
-            f"If neither suits, grab whatever's easiest here: {CALENDLY_LINK}\n\n"
-            f"Looking forward to chatting soon.")
+            f"If neither suits, grab whatever's easiest here: {CALENDLY_LINK}")
+
+
+def _ms_sdr_loom_text(first_name: str) -> str:
+    """Message 2, pasted by the SDR with their Loom about 10 minutes later."""
+    fn = first_name or "there"
+    return (f"{fn}, sent the playbook over a few minutes ago.\n\n"
+            f"Here's the short video I just shot walking through it:\n\n"
+            f"[PASTE LOOM LINK]\n\n"
+            f"Happy to run through any of it live if that's easier.")
+
+
+_MS_SEND_LABEL = {
+    "sent":        ":white_check_mark: *The playbook has already gone to the prospect.*",
+    "dry_run":     ":test_tube: *DRY RUN. A real thread matched and this would have sent, but AUTOSEND_DRY_RUN is on. Nothing went out.*",
+    "no_key":      ":warning: *NOT SENT - SMARTLEAD_API_KEY is not set. Send the playbook message below by hand, now.*",
+    "no_thread":   ":warning: *NOT SENT - no reply thread found in Smartlead. Send the playbook message below by hand, now.*",
+    "unsafe":      ":warning: *NOT SENT - the draft still had an unfilled placeholder. Fix it and send by hand.*",
+    "send_failed": ":rotating_light: *NOT SENT - Smartlead rejected the reply. Send the playbook message below by hand, now.*",
+}
 
 
 def _ms_post_slack(first_name: str, company_name: str, url: str, reply_text: str, ok: bool,
-                   slots_ok: bool = True):
+                   slots_ok: bool = True, send_status: str = "no_key",
+                   loom_text: str = ""):
     if not SLACK_WEBHOOK_URL:
         return
     if ok:
-        steps = ("*SDR steps:*\n"
-                 "1. Open the playbook below and film a Loom walking over it\n"
-                 "2. Copy the draft reply\n"
-                 "3. Swap `[PASTE LOOM LINK]` for your Loom URL\n")
-        steps += ("4. Send. Your signature appends automatically\n"
-                  if slots_ok else
-                  "4. Fill in `[TIME 1]` and `[TIME 2]` from the calendar\n"
-                  "5. Send. Your signature appends automatically\n")
+        sent = send_status in ("sent", "dry_run")
+        header = (f":white_check_mark: *Playbook sent - {first_name} / {company_name}*"
+                  if sent else
+                  f":movie_camera: *Positive reply - {first_name} / {company_name}*")
+        steps = ("*Your steps:*\n"
+                 "1. Open the playbook and film a Loom walking over it\n"
+                 "2. Copy the video message below and swap `[PASTE LOOM LINK]` for your Loom URL\n"
+                 "3. Reply on the same thread about 10 minutes after the playbook went out\n"
+                 "4. Send. Your signature appends automatically\n"
+                 if sent else
+                 "*Your steps, nothing was sent automatically:*\n"
+                 "1. Send the playbook message below on the existing thread now\n"
+                 "2. Film a Loom walking over the playbook\n"
+                 "3. About 10 minutes later, send the video message with your Loom URL\n")
         blocks = [
             {"type": "section", "text": {"type": "mrkdwn",
-                "text": f":movie_camera: *New positive reply, ready for a Loom - {first_name} / {company_name}*\n"
-                        f"Nothing was auto-sent to the prospect."}},
+                "text": f"{header}\n{_MS_SEND_LABEL.get(send_status, '')}"}},
             {"type": "section", "text": {"type": "mrkdwn",
                 "text": f"*GTM Playbook microsite:* <{url}|Open playbook>"}},
             {"type": "section", "text": {"type": "mrkdwn", "text": steps}},
             {"type": "divider"},
             {"type": "section", "text": {"type": "mrkdwn",
-                "text": f"*Draft reply, ready to send:*\n```{reply_text}```"}},
+                "text": (f"*2. Video message, send this ~10 min later:*\n```{loom_text}```"
+                         if sent else
+                         f"*1. Playbook message, send this now:*\n```{reply_text}```")}},
         ]
+        if not sent and loom_text:
+            blocks.append({"type": "section", "text": {"type": "mrkdwn",
+                "text": f"*2. Video message, ~10 min after that:*\n```{loom_text}```"}})
+        if sent:
+            blocks.append({"type": "context", "elements": [{"type": "mrkdwn",
+                "text": f"What the prospect already has:\n{reply_text[:280]}..."}]})
         if not slots_ok:
             blocks.append({"type": "context", "elements": [{"type": "mrkdwn",
-                "text": ":warning: Calendly slots could not be pulled, so fill the two times in by hand."}]})
+                "text": ":warning: Calendly slots could not be pulled, so the times were left blank."}]})
     else:
         blocks = [
             {"type": "section", "text": {"type": "mrkdwn",
@@ -937,6 +1049,28 @@ def _ms_post_slack(first_name: str, company_name: str, url: str, reply_text: str
         print(f"microsite Slack post failed: {e}")
 
 
+def _ms_autosend(email: str, reply_text: str) -> str:
+    """Send the playbook message immediately. Returns a _MS_SEND_LABEL key.
+
+    Never raises - a send failure has to still produce a Slack card telling
+    the SDR to send by hand, otherwise a silent failure loses the prospect.
+    """
+    if not SMARTLEAD_API_KEY:
+        return "no_key"
+    if not is_safe_to_autosend(reply_text):
+        return "unsafe"
+    thread = sl_find_thread(email)
+    if not thread:
+        return "no_thread"
+    if AUTOSEND_DRY_RUN:
+        print(f"microsite DRY RUN, would reply on campaign "
+              f"{thread['campaign_id']} stats {thread['stats_id']}", flush=True)
+        return "dry_run"
+    ok = sl_reply_in_thread(thread["campaign_id"], thread["stats_id"],
+                            reply_text_to_html(reply_text))
+    return "sent" if ok else "send_failed"
+
+
 def _ms_run(req):
     domain = _ms_domain(req)
     company = clean_company_name(req.company_name) if req.company_name else (
@@ -945,7 +1079,17 @@ def _ms_run(req):
     url = _ms_generate_url(domain, company, prepared_for) if domain else None
     time_pitch, slots_ok = _ms_time_pitch()
     reply = _ms_reply_text(req.first_name, company, url or "", time_pitch)
-    _ms_post_slack(req.first_name, company, url or "", reply, bool(url), slots_ok)
+    loom = _ms_sdr_loom_text(req.first_name)
+
+    # Send first, then post the card, so the card can state what actually
+    # happened rather than what was intended.
+    send_status = "no_thread"
+    if url and req.email:
+        send_status = _ms_autosend(req.email, reply)
+        print(f"microsite autosend {req.email}: {send_status}", flush=True)
+
+    _ms_post_slack(req.first_name, company, url or "", reply, bool(url), slots_ok,
+                   send_status, loom)
     if url and req.email:
         try:
             push_pdf_to_close(req.email, url)
@@ -955,11 +1099,13 @@ def _ms_run(req):
 
 @app.post("/generate-microsite")
 def generate_microsite_endpoint(req: MicrositeReq):
-    """Positive reply -> generate the GTM Playbook Microsite -> Slack for an SDR.
-    Does NOT auto-send any reply to the prospect (SDR films a Loom + sends manually)."""
+    """Positive reply -> generate the GTM Playbook Microsite -> auto-reply the
+    playbook to the prospect immediately -> Slack card asking the SDR for a
+    Loom about 10 minutes later."""
     _threading.Thread(target=_ms_run, args=(req,), daemon=True).start()
     return JSONResponse({"status": "processing",
-                         "message": "Generating microsite; link will post to Slack for the SDR. No auto-reply sent."})
+                         "message": "Generating microsite; playbook auto-replies to the prospect, "
+                                    "then a Slack card asks the SDR for a Loom ~10 min later."})
 
 
 # --- Smartlead webhook ------------------------------------------------------
