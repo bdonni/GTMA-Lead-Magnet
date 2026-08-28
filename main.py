@@ -699,6 +699,46 @@ def push_pdf_to_close(lead_email: str, drive_url: str) -> str:
         return "write_failed"
 
 
+def close_lead_link(lead_email: str, first_name: str = "", company_name: str = "") -> str:
+    """Return an app.close.com lead URL for this prospect, creating the lead
+    if Close doesn't have one yet. The link goes on the Slack card so the SDR
+    opens Close and dials through the CRM's dedicated number instead of a
+    personal mobile. Best-effort: returns "" on any failure, never raises."""
+    if not CLOSE_API_KEY or not lead_email:
+        return ""
+    auth = (CLOSE_API_KEY, "")
+    try:
+        for attempt in range(3):
+            r = requests.get(
+                f"{CLOSE_BASE_URL}/lead/",
+                auth=auth,
+                params={"query": f"email_address:{lead_email}", "_limit": 1},
+                timeout=15,
+            )
+            if r.status_code == 200:
+                data = r.json().get("data") or []
+                if data:
+                    return f"https://app.close.com/lead/{data[0]['id']}/"
+                break
+            time.sleep(3)
+        payload = {
+            "name": company_name or lead_email.split("@")[-1],
+            "contacts": [{
+                "name": first_name or lead_email.split("@")[0],
+                "emails": [{"email": lead_email, "type": "office"}],
+            }],
+        }
+        r = requests.post(f"{CLOSE_BASE_URL}/lead/", auth=auth,
+                          headers={"Content-Type": "application/json"},
+                          json=payload, timeout=15)
+        if r.status_code in (200, 201):
+            return f"https://app.close.com/lead/{r.json()['id']}/"
+        print(f"Close lead create failed ({r.status_code}): {r.text[:200]}")
+    except Exception as e:
+        print(f"close_lead_link error: {e}")
+    return ""
+
+
 def post_to_slack(first_name: str, company_name: str, drive_url: str, reply_text: str, autosend_status: str):
     if not SLACK_WEBHOOK_URL:
         return
@@ -1022,7 +1062,7 @@ _MS_SEND_LABEL = {
 
 def _ms_post_slack(first_name: str, company_name: str, url: str, reply_text: str, ok: bool,
                    slots_ok: bool = True, send_status: str = "no_key",
-                   loom_text: str = ""):
+                   loom_text: str = "", close_url: str = ""):
     if not SLACK_WEBHOOK_URL:
         return
     if ok:
@@ -1044,7 +1084,8 @@ def _ms_post_slack(first_name: str, company_name: str, url: str, reply_text: str
             {"type": "section", "text": {"type": "mrkdwn",
                 "text": f"{header}\n{_MS_SEND_LABEL.get(send_status, '')}"}},
             {"type": "section", "text": {"type": "mrkdwn",
-                "text": f"*GTM Playbook microsite:* <{url}|Open playbook>"}},
+                "text": f"*GTM Playbook microsite:* <{url}|Open playbook>"
+                        + (f"\n*Close CRM:* <{close_url}|Open lead - call via the CRM line>" if close_url else "")}},
             {"type": "section", "text": {"type": "mrkdwn", "text": steps}},
             {"type": "divider"},
             {"type": "section", "text": {"type": "mrkdwn",
@@ -1065,7 +1106,8 @@ def _ms_post_slack(first_name: str, company_name: str, url: str, reply_text: str
         blocks = [
             {"type": "section", "text": {"type": "mrkdwn",
                 "text": f":warning: *Positive reply, microsite generation FAILED - {first_name} / {company_name}*\n"
-                        f"Generate manually or check the microsite service. Nothing was auto-sent."}},
+                        f"Generate manually or check the microsite service. Nothing was auto-sent."
+                        + (f"\n*Close CRM:* <{close_url}|Open lead - call via the CRM line>" if close_url else "")}},
         ]
     try:
         requests.post(SLACK_WEBHOOK_URL, json={"blocks": blocks}, timeout=10)
@@ -1113,8 +1155,9 @@ def _ms_run(req):
         send_status = _ms_autosend(req.email, reply)
         print(f"microsite autosend {req.email}: {send_status}", flush=True)
 
+    close_url = close_lead_link(req.email or "", req.first_name or "", company)
     _ms_post_slack(req.first_name, company, url or "", reply, bool(url), slots_ok,
-                   send_status, loom)
+                   send_status, loom, close_url)
     if url and req.email:
         try:
             push_pdf_to_close(req.email, url)
