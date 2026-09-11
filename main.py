@@ -944,6 +944,10 @@ MICROSITE_BASE = os.environ.get(
     "MICROSITE_BASE",
     "https://gtm-playbook-microsite-production-f986.up.railway.app",
 ).rstrip("/")
+# The microsite's generator is locked with this key. Sent on every call; harmless before the
+# microsite starts requiring it, and required after.
+MICROSITE_API_KEY = os.environ.get("MICROSITE_API_KEY", "")
+_MS_HEADERS = {"x-api-key": MICROSITE_API_KEY} if MICROSITE_API_KEY else {}
 
 
 class MicrositeReq(BaseModel):
@@ -967,7 +971,7 @@ def _ms_generate_url(domain: str, company_name: str, prepared_for: str):
     """Kick off async generation on the microsite service and poll for the URL."""
     job = None
     try:
-        r = requests.post(f"{MICROSITE_BASE}/generate",
+        r = requests.post(f"{MICROSITE_BASE}/generate", headers=_MS_HEADERS,
                           json={"domain": domain, "company_name": company_name,
                                 "prepared_for": prepared_for}, timeout=30)
         job = r.json().get("job_id")
@@ -975,7 +979,7 @@ def _ms_generate_url(domain: str, company_name: str, prepared_for: str):
         print(f"microsite /generate kickoff failed: {e}")
     if not job:
         try:
-            r2 = requests.post(f"{MICROSITE_BASE}/generate/sync",
+            r2 = requests.post(f"{MICROSITE_BASE}/generate/sync", headers=_MS_HEADERS,
                               json={"domain": domain, "company_name": company_name,
                                     "prepared_for": prepared_for}, timeout=200)
             return r2.json().get("url")
@@ -985,7 +989,7 @@ def _ms_generate_url(domain: str, company_name: str, prepared_for: str):
     for _ in range(48):  # up to ~4 min
         time.sleep(5)
         try:
-            s = requests.get(f"{MICROSITE_BASE}/generate/{job}", timeout=15).json()
+            s = requests.get(f"{MICROSITE_BASE}/generate/{job}", headers=_MS_HEADERS, timeout=15).json()
         except Exception:
             continue
         if s.get("status") == "completed":
