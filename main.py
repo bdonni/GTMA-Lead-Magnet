@@ -139,8 +139,12 @@ template = env.get_template("template.html")
 template_lookalike = env.get_template("template_lookalike.html")
 
 # ── ENV VARS ──────────────────────────────────────────────────────────────────
-CALENDLY_LINK        = os.environ.get("CALENDLY_LINK",        "https://calendly.com/thegtmagency/30min")
-CALENDLY_API_TOKEN   = os.environ.get("CALENDLY_API_TOKEN",   "")
+# The link in the reply and the calendar its suggested times come from must be the
+# same event. BOOKING_LINK replaces the old CALENDLY_LINK variable, which on Railway
+# still points at the retired 30-minute link, so that variable is deliberately not read.
+# BOOKING_CALENDLY_TOKEN (Azam's token) wins when set; the original token is the fallback.
+CALENDLY_LINK        = os.environ.get("BOOKING_LINK", "https://calendly.com/d/dz69-syn-x3y/gtm-intro-session")
+CALENDLY_API_TOKEN   = os.environ.get("BOOKING_CALENDLY_TOKEN") or os.environ.get("CALENDLY_API_TOKEN", "")
 GOOGLE_CREDENTIALS_JSON = os.environ.get("GOOGLE_CREDENTIALS_JSON", "")
 DRIVE_FOLDER_ID      = os.environ.get("DRIVE_FOLDER_ID",      "")
 SLACK_WEBHOOK_URL    = os.environ.get("SLACK_WEBHOOK_URL",    "")
@@ -386,12 +390,19 @@ def get_calendly_slots(min_hour: int | None = None, want: int = 2) -> list[str]:
         user_uri = me.json()["resource"]["uri"]
 
         et = requests.get("https://api.calendly.com/event_types", headers=headers,
-                          params={"user": user_uri, "active": "true"}, timeout=10)
+                          params={"user": user_uri, "active": "true", "count": 100}, timeout=10)
         if et.status_code != 200:
             return [f"CALENDLY_ERROR: /event_types returned {et.status_code} — {et.text[:120]}"]
         types = et.json().get("collection", [])
         if not types:
             return ["CALENDLY_ERROR: no active event types found"]
+        # Pitch times from the event the booking link actually books. A shared team
+        # event such as GTM Intro Session is listed under each of its hosts.
+        want_url = CALENDLY_LINK.split("?")[0].rstrip("/")
+        chosen = next((t for t in types if (t.get("scheduling_url") or "").rstrip("/") == want_url), None)
+        if chosen is None:
+            print(f"calendly: no event type matches {want_url}, falling back to {types[0].get('name')}", flush=True)
+            chosen = types[0]
 
         now = datetime.now(timezone.utc)
         start = now + timedelta(minutes=15)   # must be in the future
@@ -402,7 +413,7 @@ def get_calendly_slots(min_hour: int | None = None, want: int = 2) -> list[str]:
             "https://api.calendly.com/event_type_available_times",
             headers=headers,
             params={
-                "event_type": types[0]["uri"],
+                "event_type": chosen["uri"],
                 "start_time": start.strftime("%Y-%m-%dT%H:%M:%S.000000Z"),
                 "end_time":   end.strftime("%Y-%m-%dT%H:%M:%S.000000Z"),
             },
